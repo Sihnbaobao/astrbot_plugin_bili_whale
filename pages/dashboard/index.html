@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>养鱼 · 自己刷B站</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <div class="hero-badge">
+          <img id="heroAvatar" alt="" referrerpolicy="no-referrer" hidden />
+          <span id="heroFish">🐟</span>
+        </div>
+        <div class="brand-text">
+          <strong>养鱼</strong>
+          <span id="subtitle">正在连接…</span>
+        </div>
+      </div>
+
+      <nav class="tabs" id="tabs">
+        <button type="button" class="active" data-tab="live">今天</button>
+        <button type="button" data-tab="settings">设置</button>
+      </nav>
+
+      <div class="top-actions">
+        <span class="pill" id="loginPill">检查中</span>
+        <button class="btn ghost" id="refreshBtn" type="button">刷新</button>
+      </div>
+    </header>
+
+    <div class="notice" id="notice" hidden></div>
+
+    <main class="panels">
+      <section class="panel active" id="panel-live">
+        <div class="live-stack">
+          <div class="grid">
+            <article class="card">
+              <div class="card-head">
+                <h2>B站 账号</h2>
+                <span class="hint" id="loginHint"></span>
+              </div>
+
+              <div class="account" id="accountBox" hidden>
+                <img class="avatar" id="accountAvatar" alt="" referrerpolicy="no-referrer" />
+                <div class="account-text">
+                  <strong id="accountName">—</strong>
+                  <span id="accountMid"></span>
+                </div>
+              </div>
+
+              <div class="qr" id="qrBox" hidden>
+                <img id="qrImage" alt="B站 登录二维码" />
+                <p id="qrState">用手机 B站 App 扫一扫</p>
+                <a id="qrLink" href="#" target="_blank" rel="noreferrer" hidden>打不开二维码？点这里</a>
+              </div>
+
+              <button class="btn primary block" id="loginBtn" type="button">扫码登录</button>
+            </article>
+
+            <article class="card">
+              <div class="card-head">
+                <h2>今天的额度</h2>
+                <span class="hint" id="pauseHint" hidden></span>
+              </div>
+              <div class="meter" data-key="reads">
+                <div class="meter-top"><span>读</span><b class="meter-val">—</b></div>
+                <div class="bar"><i></i></div>
+              </div>
+              <div class="meter" data-key="writes">
+                <div class="meter-top"><span>写</span><b class="meter-val">—</b></div>
+                <div class="bar"><i></i></div>
+              </div>
+              <div class="meter" data-key="shares">
+                <div class="meter-top"><span>分享</span><b class="meter-val">—</b></div>
+                <div class="bar"><i></i></div>
+              </div>
+            </article>
+
+            <article class="card">
+              <div class="card-head"><h2>作息</h2></div>
+              <p class="plan" id="planText">—</p>
+              <dl class="facts">
+                <div><dt>窗口</dt><dd id="windowText">—</dd></div>
+                <div><dt>不想看</dt><dd id="skipText">—</dd></div>
+                <div><dt>上次唤醒</dt><dd id="lastRunText">—</dd></div>
+              </dl>
+            </article>
+
+            <article class="card">
+              <div class="card-head"><h2>现在</h2></div>
+              <button class="btn primary block" id="wakeBtn" type="button">叫醒一次</button>
+              <p class="hint">会真的去刷、写日记、按额度分享，一次几分钟。</p>
+              <dl class="facts">
+                <div><dt>ffmpeg</dt><dd id="ffmpegText">—</dd></div>
+                <div><dt>推送会话</dt><dd id="umoText">—</dd></div>
+              </dl>
+            </article>
+          </div>
+
+          <section class="card">
+            <div class="card-head">
+              <h2>今天的日记</h2>
+              <div class="segmented">
+                <button class="active" data-who="yours" type="button">写给你</button>
+                <button data-who="mine" type="button">写给自己</button>
+              </div>
+            </div>
+            <div class="diary-body" id="diaryBody"><p class="empty">还没有写。</p></div>
+          </section>
+
+          <section class="card">
+            <div class="card-head"><h2>最近看过</h2><span class="hint" id="watchCount"></span></div>
+            <ul class="watch" id="watchList">
+              <li class="empty">还没有记录。</li>
+            </ul>
+          </section>
+        </div>
+      </section>
+
+      <section class="panel" id="panel-settings">
+        <div class="settings-stack">
+          <section class="card">
+            <div class="card-head">
+              <div>
+                <h2>设置</h2>
+                <p class="hint">改完点保存，立刻生效，不用重启。</p>
+              </div>
+              <div class="config-actions">
+                <span class="hint" id="saveState"></span>
+                <button class="btn primary" id="saveBtn" type="button">保存</button>
+              </div>
+            </div>
+
+            <div class="config-groups" id="configGroups"></div>
+
+            <details class="glossary">
+              <summary>这些概念是什么意思？</summary>
+              <dl>
+                <dt>作息窗口</dt>
+                <dd>
+                  她一天里允许醒来的时间段。写着 20:00-24:00，意思是在晚八点到半夜之间<strong>随机挑一个时刻</strong>醒，
+                  不是整点打卡。窗口之外她不会自己醒，也不会刷东西。
+                </dd>
+
+                <dt>「读」和「写」额度</dt>
+                <dd>
+                  她跟 B站 之间有个计数器。<strong>读</strong>是刷列表、看详情、拉字幕弹幕、下封面这些不留下痕迹的动作；
+                  <strong>写</strong>是发评论、发私信这种会被别人看到的动作。额度用完就停手，第二天重置。
+                  这是为了防止号被当成机器人在刷量。
+                </dd>
+
+                <dt>分享渠道：私信 / 评论区 / 只发聊天</dt>
+                <dd>
+                  <strong>B站 私信</strong>：只发给你，需要双方互相关注。<br />
+                  <strong>视频评论区</strong>：在她挑中的视频下面发一条公开评论并 @ 你，别人也看得见。<br />
+                  <strong>只发聊天窗口</strong>：B站 上不留痕迹，只在 QQ 里收到。<br />
+                  可以同时勾多个，三者共用同一份每日额度。
+                </dd>
+
+                <dt>扫 vs 深读</dt>
+                <dd>
+                  <strong>扫</strong>只读标题、简介、播放量，很便宜，用来从一堆片子里挑出可疑的几条；
+                  <strong>深读</strong>才下载整片、抽九帧、看图、读字幕弹幕热评，一条要一两分钟，所以有次数上限。
+                </dd>
+
+                <dt>推送会话</dt>
+                <dd>
+                  她要往哪个聊天窗口发东西。这一项不填，她醒来后就不会往 QQ 推（插件会直接跳过那次唤醒）。
+                  最省事的做法：在聊天里给机器人发一次 <code>/鲸鱼 状态</code>，她会把当前会话记住。
+                </dd>
+
+                <dt>评分门槛</dt>
+                <dd>
+                  她必须给每条挑中的视频打个 0-10 分，不到门槛就不分享 —— 宁可一条都不发，也不拿烂片凑数。
+                </dd>
+              </dl>
+            </details>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <!-- module 脚本默认延迟执行：AstrBot 把桥接脚本插在 body 结束标签之前，
+         也就是排在这个标签后面。用普通脚本会先于桥接执行，那时 window.AstrBotPluginPage 还是 undefined。 -->
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

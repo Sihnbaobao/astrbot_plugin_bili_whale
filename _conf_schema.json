@@ -1,0 +1,173 @@
+{
+  "BILI_SESSDATA": {
+    "description": "B站 Cookie · SESSDATA",
+    "type": "string",
+    "default": "",
+    "hint": "F12 → Application → Cookies → bilibili.com，复制 SESSDATA。它是 HttpOnly，document.cookie 里读不到。"
+  },
+  "BILI_JCT": {
+    "description": "B站 Cookie · bili_jct",
+    "type": "string",
+    "default": "",
+    "hint": "写操作（发评论）需要的 csrf。缺了就只能读。"
+  },
+  "BILI_BUVID3": {
+    "description": "B站 Cookie · buvid3",
+    "type": "string",
+    "default": "",
+    "hint": "缺它更容易触发风控，建议一并填写。"
+  },
+  "OWNER_UMO": {
+    "description": "【推送】汇报发到哪个会话",
+    "type": "string",
+    "default": "",
+    "hint": "她醒来写完日记后把汇报发到哪个聊天窗口，形如 aiocqhttp:FriendMessage:123456。不确定就先留空，然后在聊天里发一次 /鲸鱼 状态，她会记住当前会话。不填且没发过命令时，她不会自己醒（没有地方汇报）。"
+  },
+  "OWNER_MID": {
+    "description": "【推送】你的 B站 UID",
+    "type": "string",
+    "default": "",
+    "hint": "私信通道要用。打开自己的 B站 空间，地址栏 space.bilibili.com/ 后面那串数字。她只能发给你，而且必须互相关注，B站 才允许私信。"
+  },
+  "OWNER_NAME": {
+    "description": "【推送】怎么称呼你",
+    "type": "string",
+    "default": "主人",
+    "hint": "写进提示词，她在日记和汇报里会这么叫你。"
+  },
+  "PROVIDER_ID": {
+    "description": "【模型】用哪个模型",
+    "type": "string",
+    "default": "",
+    "hint": "用哪个模型来刷、写日记、写汇报。留空就用当前会话的聊天模型。刷一条视频消耗不少 token，可以单独指一个便宜的模型。"
+  },
+  "WAKE_WINDOWS": {
+    "description": "【作息】每天什么时候可以醒",
+    "type": "string",
+    "default": "20:00-24:00",
+    "hint": "她一天里可以在哪些时间段醒来，格式「开始-结束」。20:00-24:00 表示晚八点到半夜之间随机挑一个时刻醒（不是整点）。多个窗口用逗号分隔，例如 09:00-11:00,20:00-24:00。窗口之外她不会自己醒。"
+  },
+  "WAKES_PER_WINDOW": {
+    "description": "【作息】每个窗口醒几次",
+    "type": "int",
+    "default": 1,
+    "hint": "同一个窗口里醒几回。1 表示每天一次；填 2 表示可能晚上醒一次、睡前再醒一次。"
+  },
+  "SKIP_PERCENT": {
+    "description": "【作息】今天不想看的概率 %",
+    "type": "int",
+    "default": 30,
+    "hint": "每次唤醒前先掷骰子，有这个比例的概率直接「今天不想看」—— 只写日记说明为什么，不刷视频。填 0 表示每天都看。"
+  },
+  "MIN_GAP_MINUTES": {
+    "description": "【作息】两次醒来最小间隔（分钟）",
+    "type": "int",
+    "default": 10,
+    "hint": "同一个窗口醒多次时，两次之间至少隔多久，避免十分钟内连刷两轮。"
+  },
+  "MAX_SCAN": {
+    "description": "【力度】每次最多扫几条",
+    "type": "int",
+    "default": 5,
+    "hint": "只看标题、简介、播放量这类文字，很便宜，相当于先把菜单翻一遍。"
+  },
+  "MAX_DEEP_READ": {
+    "description": "【力度】每次最多深读几条",
+    "type": "int",
+    "default": 3,
+    "hint": "深读 = 下载整片 + 抽九帧 + 看图，一条要一两分钟，是整条链路里最贵的一步。超过这个数就只能读文字。"
+  },
+  "FEED_PRIORITY": {
+    "description": "【力度】候选来源优先级",
+    "type": "string",
+    "default": "following",
+    "options": [
+      "following",
+      "recommend",
+      "popular"
+    ],
+    "hint": "关注的人优先：先看她号里关注的人发了什么；首页推荐优先：用 B站 给她排的个性化推荐流；热门榜优先：全站热榜。前两种需要登录，失败会自动降级到热门。"
+  },
+  "SHARE_VIA": {
+    "description": "【分享】发到什么渠道（可多选）",
+    "type": "string",
+    "default": "local",
+    "hint": "用逗号分隔可以同时选多个：dm = B站 私信，comment = 视频公开评论，local = 只发到聊天窗口。例如 dm,local 表示同时发 B站 私信和 QQ。三者共用同一份每日额度。"
+  },
+  "SHARE_DAILY": {
+    "description": "【分享】每天最多几条",
+    "type": "int",
+    "default": 3,
+    "hint": "这是上限不是任务。一条都不值得就是 0 条，她不该为了用满额度硬凑。填 0 表示只写日记、不分享。"
+  },
+  "SHARE_MIN_SCORE": {
+    "description": "【分享】评分门槛（0-10）",
+    "type": "int",
+    "default": 7,
+    "hint": "她给每条视频打 0-10 分，低于这个分数一律不发。调高更挑剔，调低更容易发。",
+    "condition": {
+      "SHARE_DAILY": ">0"
+    }
+  },
+  "READ_DAILY": {
+    "description": "【预算】每天读上限（次）",
+    "type": "int",
+    "default": 3000,
+    "hint": "对 B站 发起的「读」请求次数：刷列表、查详情、拉字幕弹幕、下封面都算。一轮「刷几条 + 深读两三条」大约用掉 25-40 次。调小等于限制她出门。"
+  },
+  "WRITE_DAILY": {
+    "description": "【预算】每天写上限（次）",
+    "type": "int",
+    "default": 30,
+    "hint": "对 B站 发起的「写」操作次数，目前就是发评论。设上限是为了让号别被当成刷量机器人。"
+  },
+  "WRITE_COOLDOWN": {
+    "description": "【预算】两次写之间冷却（秒）",
+    "type": "int",
+    "default": 120,
+    "hint": "发完一条评论后至少隔多久才能发下一条。连着发是最容易被判刷屏的特征。"
+  },
+  "ENABLE_FRAMES": {
+    "description": "【力度】抽帧看画面",
+    "type": "bool",
+    "default": true,
+    "hint": "关掉后深读只剩字幕、弹幕、热评；教程、录屏这类纯画面视频就看不懂了。需要 ffmpeg。"
+  },
+  "PREFER_LIKE": {
+    "description": "【偏好】喜欢什么",
+    "type": "list",
+    "default": [],
+    "hint": "留空就完全按人格来（推荐）。只有想额外补充时才填 —— 这里写的东西会盖过人格，容易让她去看不该看的。"
+  },
+  "PREFER_DISLIKE": {
+    "description": "【偏好】不喜欢什么",
+    "type": "list",
+    "default": [],
+    "hint": "可选。明确不想看的方向。留空就按人格判断。"
+  },
+  "PERSONA_ID": {
+    "description": "【人设】选择人格",
+    "type": "string",
+    "default": "",
+    "_special": "select_persona",
+    "hint": "从 AstrBot 人格库挑一个，她刷B站时按这个人格说话。留空是中性设定：不叫主人、不撒娇。只影响刷B站，不影响别的会话。"
+  },
+  "PERSONA": {
+    "description": "【人设】补充说明（可选）",
+    "type": "text",
+    "default": "",
+    "hint": "叠加在人格之上，适合写「她怎么看待刷B站这件事」。不写也行。"
+  },
+  "ENABLE_LIKE": {
+    "description": "【分享】允许点赞",
+    "type": "bool",
+    "default": true,
+    "hint": "只给真正深读过的视频点赞，一天最多 5 条，同一条不会重复点。点赞和分享是两回事：点赞是她自己喜欢，分享才需要打扰你。投币、关注、三连一律不做。"
+  },
+  "ENABLE_MEMORY": {
+    "description": "【力度】聊天时记得刷过什么",
+    "type": "bool",
+    "default": true,
+    "hint": "开启后，普通对话里会带上她今天刷过的几条（标题、她给的分数、她写的笔记），你问她看了什么她能答上来。关掉则只有醒来那一轮记得。"
+  }
+}

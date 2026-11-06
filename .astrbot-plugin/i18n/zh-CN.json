@@ -1,0 +1,17 @@
+{
+  "metadata": {
+    "display_name": "养鱼 · 自己刷B站"
+  },
+  "pages": {
+    "dashboard": {
+      "title": "养鱼",
+      "description": "扫码登录、额度、作息、日记与最近看过"
+    }
+  },
+  "views": {
+    "dashboard": {
+      "title": "养鱼",
+      "description": "扫码登录、额度、作息、日记与最近看过"
+    }
+  }
+}
