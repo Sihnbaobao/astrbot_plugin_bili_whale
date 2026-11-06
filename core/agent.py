@@ -83,6 +83,8 @@ SYSTEM_PROMPT = """你现在醒了，决定自己刷一会儿 B站。下面是�
 - 汇报和评论里不许出现工具名、接口、报错码、额度、抽帧 —— 那些是你自己的事。
 
 分享正文像随手发的一条微信：短、口语、不超过 60 字，不要评测腔。
+看到想回的，可以 whale_comment 在评论区留一句 —— 那是给别人看的，不是你跟他说话。
+一天最多两条，别 @ 人、别放链接，也别为了刷存在感硬评。
 
 除此之外不用总结，也不用汇报你今天看了什么 —— 想跟对方说的话，就写在分享的那一句里。"""
 
@@ -399,6 +401,28 @@ class WakeAgent:
         )
         tools.add_tool(
             FunctionTool(
+                name="whale_comment",
+                description=(
+                    "你看到想回的，就在这条视频下面留一句评论。"
+                    "只给 whale_debrief 看过的视频评论，一天最多 2 条，"
+                    "不许 @ 人、不许放链接（那是分享的事）。"
+                ),
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "bvid": {"type": "string", "description": "视频号"},
+                        "text": {
+                            "type": "string",
+                            "description": "评论正文，80 字以内，像随手回的一句",
+                        },
+                    },
+                    "required": ["bvid", "text"],
+                },
+                handler=self._tool_comment,
+            )
+        )
+        tools.add_tool(
+            FunctionTool(
                 name="whale_share",
                 description=(
                     "分享一条视频给对方。必须给出 0-10 的自评分和至少八个字的理由，"
@@ -646,6 +670,34 @@ class WakeAgent:
             return "记下了。以后 whale_recall 能搜到这句话。"
         return "库里没有这条记录 —— 先 whale_debrief 看过再记。"
 
+    async def _tool_comment(self, event: AstrMessageEvent, bvid: str, text: str) -> str:
+        """她自己在评论区说一句（不 @ 人、不带链接）。"""
+        bvid = str(bvid or "").strip()
+        body = " ".join(str(text or "").split())
+        if not bvid.startswith("BV"):
+            return "bvid 看起来不对。"
+        if not self.settings.enable_comment:
+            return "评论功能在设置里关着。"
+        if bvid not in self._seen:
+            return "只评论真正读过的视频 —— 先 whale_debrief 看完再说。"
+        if not body:
+            return "评论是空的。"
+        if "@" in body or "http" in body.lower():
+            return "评论里别 @ 人、别放链接 —— 那是分享要做的事，评论是你自己想说的一句。"
+        if len(body) > 80:
+            return "评论太长了（80 字以内），B站 评论区没人这么说话。"
+
+        ok, why = self.guard.write_gate(bvid=bvid, is_comment=True)
+        if not ok:
+            return f"现在评不了：{why}"
+        try:
+            aid = int((await self.client.view(bvid)).get("aid") or 0)
+            await self.client.post_comment(aid, body)
+        except BiliError as exc:
+            return f"评论没发出去：{exc}"
+        self.guard.note_write(bvid=bvid, is_comment=True)
+        self.store.mark_watched({"bvid": bvid, "commented": True})
+        return "评了。"
     async def _tool_share(
         self,
         event: AstrMessageEvent,
@@ -717,6 +769,9 @@ class WakeAgent:
             return f"哪条渠道都没发出去：{'；'.join(failures)}。别硬重试，跟对方说一声。"
 
         self.guard.note_write(bvid=bvid, is_share=True)
+        if "视频评论区" in delivered:
+            # 分享到评论区也算评论过，免得她回头在同一视频下面再评一次
+            self.guard.mark_commented(bvid)
         self.store.mark_watched(
             {
                 "bvid": bvid,

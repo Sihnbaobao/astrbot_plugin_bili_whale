@@ -90,6 +90,7 @@ def test_tools_are_constructible_and_valid(agent):
         "whale_debrief",
         "whale_share",
         "whale_diary",
+        "whale_comment",
         "whale_like",
         "whale_remember",
         "whale_recall",
@@ -128,6 +129,98 @@ def test_clip_text_cuts_at_sentence_end():
     assert len(clipped) <= 21
     assert clipped.endswith("…")
 
+
+def test_comment_requires_deep_read(tmp_path):
+    import asyncio
+
+    from core.debrief import Debrief
+
+    class FakeClient:
+        logged_in = True
+
+        def __init__(self):
+            self.comments = []
+
+        async def view(self, bvid):
+            return {"aid": 1}
+
+        async def post_comment(self, aid, text):
+            self.comments.append(text)
+
+    store = Store(tmp_path)
+    client = FakeClient()
+    agent = WakeAgent(
+        context=None,
+        settings=Settings(owner_umo="webchat:FriendMessage:1"),
+        store=store,
+        guard=Guard(store, write_cooldown=0),
+        client=client,
+        debrief=None,
+        ffmpeg="",
+    )
+    event = agent._make_event()
+
+    assert "先 whale_debrief" in asyncio.run(agent._tool_comment(event, "BV1xx411c7mD", "好片"))
+    assert client.comments == []
+
+    agent._seen["BV1xx411c7mD"] = Debrief(bvid="BV1xx411c7mD")
+    assert "别 @ 人" in asyncio.run(
+        agent._tool_comment(event, "BV1xx411c7mD", "@暴暴 看这个")
+    )
+    assert "别 @ 人" in asyncio.run(
+        agent._tool_comment(event, "BV1xx411c7mD", "https://example.com")
+    )
+    assert "太长" in asyncio.run(agent._tool_comment(event, "BV1xx411c7mD", "啊" * 90))
+    assert client.comments == []
+
+    assert "评了" in asyncio.run(agent._tool_comment(event, "BV1xx411c7mD", "这段剪得真好"))
+    assert client.comments == ["这段剪得真好"]
+
+    # 同一条视频不重复评
+    assert "评论过" in asyncio.run(agent._tool_comment(event, "BV1xx411c7mD", "再说一句"))
+
+
+def test_comment_shares_dedupe_with_share_channel(tmp_path):
+    import asyncio
+
+    from core.debrief import Debrief
+
+    class FakeClient:
+        logged_in = True
+
+        async def view(self, bvid):
+            return {"aid": 1}
+
+        async def post_comment(self, aid, text):
+            return None
+
+        async def send_dm(self, mid, text):
+            return None
+
+    store = Store(tmp_path)
+    agent = WakeAgent(
+        context=None,
+        settings=Settings(
+            owner_umo="webchat:FriendMessage:1",
+            owner_mid="999",
+            share_channels=("comment",),
+        ),
+        store=store,
+        guard=Guard(store, write_cooldown=0),
+        client=FakeClient(),
+        debrief=None,
+        ffmpeg="",
+    )
+    agent._seen["BV1xx411c7mD"] = Debrief(bvid="BV1xx411c7mD")
+    asyncio.run(
+        agent._tool_share(
+            agent._make_event(), "BV1xx411c7mD", "看这个", 8, "这条值得占用你两分钟"
+        )
+    )
+    # 分享时已经在评论区留过，不该再评一次
+    assert "评论过" in asyncio.run(
+        agent._tool_comment(agent._make_event(), "BV1xx411c7mD", "补一句")
+    )
 
 def test_like_requires_deep_read_and_dedupes(tmp_path):
     import asyncio

@@ -179,6 +179,7 @@ const configPayload = {
     SHARE_VIA: "dm,local",
     ENABLE_LIKE: true,
     ENABLE_MEMORY: true,
+    ENABLE_COMMENT: true,
     SHARE_DAILY: 3,
     SHARE_MIN_SCORE: 13,
     READ_DAILY: 3000,
@@ -288,8 +289,8 @@ function countInputs(node) {
   return total;
 }
 const inputCount = countInputs(getEl("configGroups"));
-// 20 个普通字段 + 分享渠道的 3 个勾选框
-check(inputCount === 23, "配置表单渲染 23 个输入项，实际 " + inputCount);
+// 21 个普通字段 + 分享渠道的 3 个勾选框
+check(inputCount === 24, "配置表单渲染 24 个输入项，实际 " + inputCount);
 
 // 说明文字收在「?」气泡里，不铺在页面上；但每个字段都得有一个，否则等于没解释
 function countTips(node) {
@@ -300,7 +301,7 @@ function countTips(node) {
   return total;
 }
 const tipCount = countTips(getEl("configGroups"));
-check(tipCount === 21, "每个字段都应带一个 ? 说明，实际 " + tipCount);
+check(tipCount === 22, "每个字段都应带一个 ? 说明，实际 " + tipCount);
 
 // 推送会话这类标识很难手填，必须给出「从最近会话里选」的下拉
 function countClass(node, className) {

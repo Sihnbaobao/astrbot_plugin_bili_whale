@@ -75,6 +75,7 @@ CONFIG_SPEC: dict[str, tuple[str, type]] = {
     "FEED_PRIORITY": ("feed_priority", str),
     "ENABLE_LIKE": ("enable_like", bool),
     "ENABLE_MEMORY": ("recall_memory", bool),
+    "ENABLE_COMMENT": ("enable_comment", bool),
     "ENABLE_FRAMES": ("frames", bool),
     "SHARE_VIA": ("share_channels", str),
     "SHARE_DAILY": ("share_daily", int),

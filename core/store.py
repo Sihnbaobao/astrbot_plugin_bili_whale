@@ -565,6 +565,7 @@ class Guard:
         write_daily: 每日写操作上限（评论/收藏）。
         write_cooldown: 两次写之间的最小间隔（秒）。
         share_daily: 每天最多分享几条。
+        comment_daily: 每天最多自己发几条评论。
         share_min_score: 分享所需最低评分（0-10）。
         video_cooldown_days: 同一条视频多少天内不重复分享。
     """
@@ -577,6 +578,7 @@ class Guard:
         write_daily: int = 30,
         write_cooldown: int = 120,
         share_daily: int = 3,
+        comment_daily: int = 2,
         share_min_score: int = 7,
         video_cooldown_days: int = 7,
     ) -> None:
@@ -585,6 +587,7 @@ class Guard:
         self.write_daily = max(1, int(write_daily))
         self.write_cooldown = max(0, int(write_cooldown))
         self.share_daily = max(0, int(share_daily))
+        self.comment_daily = max(0, int(comment_daily))
         self.share_min_score = max(0, int(share_min_score))
         self.video_cooldown_days = max(1, int(video_cooldown_days))
 
@@ -596,9 +599,12 @@ class Guard:
             state["reads"] = 0
             state["writes"] = 0
             state["shares"] = 0
+            state["comments"] = 0
         state.setdefault("reads", 0)
         state.setdefault("writes", 0)
         state.setdefault("shares", 0)
+        state.setdefault("comments", 0)
+        state.setdefault("commented", {})
         state.setdefault("last_write_at", 0.0)
         state.setdefault("pause_until", 0.0)
         state.setdefault("share_bvids", {})
@@ -659,6 +665,7 @@ class Guard:
         reason: str = "",
         bvid: str | None = None,
         is_share: bool = False,
+        is_comment: bool = False,
     ) -> tuple[bool, str]:
         """判断一次写操作能否放行。
 
@@ -669,6 +676,7 @@ class Guard:
             reason: 至少 8 个字的理由，分享时必填。
             bvid: 目标视频号，分享时用于查重。
             is_share: 是否属于分享通道。
+            is_comment: 是否属于"她自己想评论"，与分享各算各的额度。
 
         Returns:
             (是否允许, 拒绝原因)。
@@ -685,6 +693,15 @@ class Guard:
 
         if int(state["writes"]) >= self.write_daily:
             return False, f"今日写预算用完（{state['writes']}/{self.write_daily}）"
+
+        if is_comment:
+            if int(state["comments"]) >= self.comment_daily:
+                return False, f"今天评论够多了（{state['comments']}/{self.comment_daily}）"
+            if bvid:
+                last = float(state["commented"].get(bvid, 0))
+                if now - last < self.video_cooldown_days * 86400:
+                    return False, "这条已经评论过了"
+            return True, ""
 
         if not is_share:
             return True, ""
@@ -703,7 +720,13 @@ class Guard:
                 return False, f"{bvid} 在 {self.video_cooldown_days} 天内已经分享过"
         return True, ""
 
-    def note_write(self, *, bvid: str | None = None, is_share: bool = False) -> None:
+    def note_write(
+        self,
+        *,
+        bvid: str | None = None,
+        is_share: bool = False,
+        is_comment: bool = False,
+    ) -> None:
         """记一次写操作。"""
         state = self._state()
         state["writes"] = int(state["writes"]) + 1
@@ -712,6 +735,24 @@ class Guard:
             state["shares"] = int(state["shares"]) + 1
             if bvid:
                 state["share_bvids"][bvid] = time.time()
+        if is_comment:
+            state["comments"] = int(state["comments"]) + 1
+            if bvid:
+                state["commented"][bvid] = time.time()
+        self._flush(state)
+
+    def mark_commented(self, bvid: str) -> None:
+        """记下"这条已经评论过"，不额外计额度。
+
+        分享到评论区时也要记一笔，否则她会在同一条视频下面评两次。
+
+        Args:
+            bvid: 视频号。
+        """
+        if not bvid:
+            return
+        state = self._state()
+        state["commented"][bvid] = time.time()
         self._flush(state)
 
     def snapshot(self) -> dict:
