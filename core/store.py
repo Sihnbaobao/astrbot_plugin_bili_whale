@@ -123,7 +123,12 @@ class Store:
             # 被问到"这个视频讲了什么"时，光有标题和一句感慨不够，把她当时记的展开一段
             remembered = re.sub(r"\s+", " ", str(fresh.get("note") or "")).strip()
             if remembered:
-                lead += f"当时记的：{remembered[:60]}。"
+                # 60 字以内按句号截断，别切成"…懒得改。今。"这种残句
+                head = remembered[:60]
+                stop = head.rfind("。")
+                if len(remembered) > 60:
+                    head = head[: stop + 1] if stop >= 20 else head.rstrip("，、；：") + "…"
+                lead += f"当时记的：{head}"
             # 对方接下来说"这个/刚才那个"，指的就是这一条
             lead += '对方说"这个"就是指这条。'
 
