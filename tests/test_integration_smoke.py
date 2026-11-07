@@ -33,6 +33,15 @@ def agent(tmp_path) -> WakeAgent:
     )
 
 
+def test_tool_descriptions_sound_like_her(agent):
+    """工具描述每轮都会注入，不能写成说明书口吻。"""
+    banned = ("候选", "素材", "检索", "闸门", "元信息", "轻量信息", "参数")
+    for tool in agent._tools().tools:
+        text = tool.description + str(tool.parameters)
+        for word in banned:
+            assert word not in text, f"{tool.name} 的描述里出现了「{word}」"
+
+
 def test_persona_is_injected_into_system_prompt(tmp_path):
     """选了人格就该把人格正文拼在系统提示词最前面。"""
     import asyncio

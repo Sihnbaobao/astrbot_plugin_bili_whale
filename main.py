@@ -475,7 +475,7 @@ class BiliWhalePlugin(Star):
         for name, description, parameters, handler in (
             (
                 "whale_feed",
-                "去 B站 看看有什么：拉一批候选视频，只含标题/UP/时长/播放。",
+                "去 B站 翻一翻，看看有什么。只给标题、UP、长短、播放量。",
                 {
                     "type": "object",
                     "properties": {
@@ -499,7 +499,7 @@ class BiliWhalePlugin(Star):
             ),
             (
                 "whale_debrief",
-                "读一条视频的文字素材（字幕/弹幕/热评），比 whale_feed 贵但更懂内容。",
+                "点进一条看看：字幕、弹幕、热评。慢一点，但看完就知道讲了什么。",
                 {
                     "type": "object",
                     "properties": {
@@ -511,7 +511,7 @@ class BiliWhalePlugin(Star):
             ),
             (
                 "whale_recall",
-                "回忆自己以前看过什么，按标题/标签/笔记检索。",
+                "回想自己以前看过什么。",
                 {
                     "type": "object",
                     "properties": {

@@ -325,16 +325,16 @@ class WakeAgent:
             FunctionTool(
                 name="whale_feed",
                 description=(
-                    "拉一批候选视频，只含标题/UP/时长/播放等轻量信息。"
-                    "source：recommend 首页推荐（最像真人刷首页，需登录）/ popular 热门 / "
-                    "ranking 排行榜 / search 关键词搜（需登录）/ following 关注动态（需登录）。"
+                    "翻翻 B站。source 选从哪儿翻：recommend 首页推荐、popular 热门、"
+                    "ranking 排行榜、search 搜（要给 keyword）、following 关注动态。"
+                    "只给标题、UP、长短、播放量 —— 够挑就行。"
                 ),
                 parameters={
                     "type": "object",
                     "properties": {
                         "source": {
                             "type": "string",
-                            "description": "候选来源，默认 recommend",
+                            "description": "从哪儿翻，默认 recommend",
                             "enum": [
                                 "recommend",
                                 "popular",
@@ -345,11 +345,11 @@ class WakeAgent:
                         },
                         "keyword": {
                             "type": "string",
-                            "description": "source=search 时必填的关键词",
+                            "description": "search 时要搜什么",
                         },
                         "limit": {
                             "type": "integer",
-                            "description": "返回条数，默认 8",
+                            "description": "几条，默认 8",
                         },
                     },
                     "required": [],
@@ -361,8 +361,8 @@ class WakeAgent:
             FunctionTool(
                 name="whale_debrief",
                 description=(
-                    "看懂一条视频：元信息+官方字幕+弹幕热区+热评，deep=true 时再加封面与九宫格抽帧并由你看图。"
-                    "deep 很贵，只在决定要分享时才用。"
+                    "点进一条看：简介、字幕、弹幕热区、热评。"
+                    "deep=true 时会抽几帧给你看画面，慢，真要看清楚才用。"
                 ),
                 parameters={
                     "type": "object",
@@ -370,7 +370,7 @@ class WakeAgent:
                         "bvid": {"type": "string", "description": "视频号，如 BV1xx411c7mD"},
                         "deep": {
                             "type": "boolean",
-                            "description": "是否抽帧看图；默认 false",
+                            "description": "要不要看画面，默认不看",
                         },
                     },
                     "required": ["bvid"],
@@ -382,8 +382,7 @@ class WakeAgent:
             FunctionTool(
                 name="whale_remember",
                 description=(
-                    "把你看完某条视频后自己的话写进看片库（两三句：讲了什么、你记住了什么）。"
-                    "必须先用 whale_debrief 看过这条。写进去的话以后 whale_recall 能搜到。"
+                    "看完记两句：这条讲了什么、你记住了什么。以后想翻能翻到。"
                 ),
                 parameters={
                     "type": "object",
@@ -407,9 +406,7 @@ class WakeAgent:
             FunctionTool(
                 name="whale_comment",
                 description=(
-                    "在这条视频底下公开留一条评论。"
-                    "只给 whale_debrief 看过的视频评论，一天最多 2 条，"
-                    "不许 @ 人、不许放链接（那是分享的事）。"
+                    "在视频底下公开说一句。只评你看过的，一天两条，不 @ 人、不带链接。"
                 ),
                 parameters={
                     "type": "object",
@@ -429,8 +426,7 @@ class WakeAgent:
             FunctionTool(
                 name="whale_share",
                 description=(
-                    "分享一条视频给对方。必须给出 0-10 的自评分和至少八个字的理由，"
-                    "会经过额度与评分闸门，被拒时如实接受。"
+                    "想给他看的时候用。要给个 0-10 的分和一句为什么，不到分会被拦。"
                 ),
                 parameters={
                     "type": "object",
@@ -450,7 +446,7 @@ class WakeAgent:
                         "reason": {
                             "type": "string",
                             "description": (
-                                "为什么值得占用他一次注意力（闸门用，不会发出去），至少八个字"
+                                "为什么值得占用他一次注意力（不会发出去），至少八个字"
                             ),
                         },
                     },
@@ -463,8 +459,7 @@ class WakeAgent:
             FunctionTool(
                 name="whale_diary",
                 description=(
-                    "写日记。who=mine 是写给自己那本（不加滤镜），"
-                    "who=yours 是写给对方那本（有细节、有情绪）。两本都要写。"
+                    "写日记。mine 给自己（不加滤镜），yours 给他（有细节有情绪）。两本都写。"
                 ),
                 parameters={
                     "type": "object",
@@ -485,8 +480,7 @@ class WakeAgent:
             FunctionTool(
                 name="whale_like",
                 description=(
-                    "给一条你真正读过的视频点赞。只给 whale_debrief 看过的点，"
-                    "一天最多 5 条，同一条不会重复点。"
+                    "点个赞。只能点你看过的，一天五条，同一条不重复。"
                 ),
                 parameters={
                     "type": "object",
@@ -502,8 +496,7 @@ class WakeAgent:
             FunctionTool(
                 name="whale_recall",
                 description=(
-                    "回忆自己以前看过、讲过这个主题的视频。按标题、简介、标签匹配。"
-                    "挑片拿不准时用来避免重复，写日记想引用旧片时也用它。"
+                    "回想自己以前看过什么。"
                 ),
                 parameters={
                     "type": "object",
@@ -519,7 +512,7 @@ class WakeAgent:
         tools.add_tool(
             FunctionTool(
                 name="whale_history",
-                description="看最近几天看过什么，避免重复。",
+                description="看最近几天看过什么。",
                 parameters={
                     "type": "object",
                     "properties": {
@@ -533,7 +526,7 @@ class WakeAgent:
         tools.add_tool(
             FunctionTool(
                 name="whale_status",
-                description="看今天还剩多少额度、有没有被风控熔断。",
+                description="看今天还剩多少额度、有没有被限流。",
                 parameters={"type": "object", "properties": {}, "required": []},
                 handler=self._tool_status,
             )
