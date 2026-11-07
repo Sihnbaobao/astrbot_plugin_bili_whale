@@ -92,6 +92,8 @@ class Store:
         def clean(text: str, width: int) -> str:
             body = re.sub(r"^【[^】]*】", "", str(text or "")).strip()
             body = re.sub(r"\s*[—－-]{2,}\s*", " ", body).strip()
+            # 外面统一包书名号，这里先剥掉自带的，免得套娃
+            body = body.strip("《》").strip()
             return body.rstrip("？！。 ，")[:width]
 
         def recall(item: dict) -> str:
@@ -102,7 +104,8 @@ class Store:
             pick = (pieces[-1] if pieces else "").strip()[:16]
             if item.get("shared"):
                 pick = f"{pick}，已发给{other_name}" if pick else f"已发给{other_name}"
-            return f"{title}（{pick}）" if pick else title
+            # 标题必须带书名号：裸着写会被当成别人说的话
+            return f"《{title}》（{pick}）" if pick else f"《{title}》"
 
         # 刚发出去的那条要单独点名：用户下一句说"这个"时，她得有指代对象
         fresh: dict | None = None
@@ -124,7 +127,7 @@ class Store:
             title = clean(fresh.get("title") or "", 20) or "（无标题）"
             said = str(fresh.get("message") or "").strip()[:32]
             # 全程第三人称：这段是贴在"用户侧"的附注，用"你/他"会被读成对方在说话
-            lead = f"{self_name}刚给{other_name}发过 {title}"
+            lead = f"{self_name}刚给{other_name}发过《{title}》"
             if said:
                 lead += f"，发的时候说「{said}」"
             lead += "。"
@@ -147,7 +150,7 @@ class Store:
                 break
             parts.append(recall(item))
 
-        body = lead + (("今天还刷过：" + "；".join(parts) + "。") if parts else "")
+        body = lead + (("今天还刷过：" + "、".join(parts) + "。") if parts else "")
         return "（记忆：" + body + "）"
     def liked_before(self, bvid: str) -> bool:
         """这条是不是已经点过赞了。"""
