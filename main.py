@@ -508,7 +508,7 @@ class BiliWhalePlugin(Star):
             )
         logger.info("[bili-whale] 插件页接口已注册：%s", "、".join(r[0] for r in routes))
 
-    @filter.on_llm_request(priority=100000)
+    @filter.on_llm_request(priority=-5)
     async def _inject_browsing_memory(
         self, event: AstrMessageEvent, req: ProviderRequest
     ) -> None:
@@ -530,9 +530,17 @@ class BiliWhalePlugin(Star):
             return
         if not block:
             return
-        current = (req.system_prompt or "").strip()
-        req.system_prompt = f"{current}\n\n{block}" if current else block
-        logger.info("[bili-whale] 已把今天的浏览记录挂进对话上下文")
+        # 贴在用户这一条消息后面，而不是塞进 system_prompt：
+        # system_prompt 前面隔着整段人格和规则，模型基本用不上；挨着问题才管用。
+        # 用 extra_user_content_parts 而不是改 prompt —— 那样会被当成用户说的话。
+        # priority=-5 比人格插件（-1）更晚执行，所以不会被它重写的 prompt 覆盖。
+        parts = getattr(req, "extra_user_content_parts", None)
+        if isinstance(parts, list):
+            parts.append({"type": "text", "text": block})
+        else:
+            current = (req.prompt or "").strip()
+            req.prompt = f"{current}\n\n{block}" if current else block
+        logger.info("[bili-whale] 已把浏览记录贴到本轮消息后面")
 
     async def _api_status(self):
         """插件页顶部的全部状态。"""

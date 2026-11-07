@@ -76,12 +76,19 @@ def test_llm_hook_injects_today_history(tmp_path):
     plugin.settings = Settings(owner_umo="", recall_memory=True)
     plugin.store.mark_watched({"bvid": "BV1", "title": "百合短篇", "score": 8})
 
-    req = SimpleNamespace(system_prompt="你是璃月。")
+    req = SimpleNamespace(
+        prompt="你喜欢这个么",
+        system_prompt="你是璃月。",
+        extra_user_content_parts=[],
+    )
     asyncio.run(
         plugin._inject_browsing_memory(SimpleNamespace(_bili_whale_wake=False), req)
     )
-    assert "百合短篇" in req.system_prompt
-    assert req.system_prompt.startswith("你是璃月。")
+    # 记忆作为额外内容块贴在用户消息后面：紧挨着问题，又不冒充用户说的话
+    assert len(req.extra_user_content_parts) == 1
+    assert "百合短篇" in req.extra_user_content_parts[0]["text"]
+    assert req.prompt == "你喜欢这个么"
+    assert req.system_prompt == "你是璃月。"
 
 
 def test_llm_hook_skips_wake_and_disabled(tmp_path):
@@ -92,14 +99,14 @@ def test_llm_hook_skips_wake_and_disabled(tmp_path):
     plugin.settings = Settings(owner_umo="", recall_memory=True)
     plugin.store.mark_watched({"bvid": "BV1", "title": "百合短篇", "score": 8})
 
-    wake = SimpleNamespace(system_prompt="唤醒提示")
+    wake = SimpleNamespace(prompt="唤醒提示", system_prompt="x", extra_user_content_parts=[])
     asyncio.run(plugin._inject_browsing_memory(SimpleNamespace(_bili_whale_wake=True), wake))
-    assert wake.system_prompt == "唤醒提示"
+    assert wake.extra_user_content_parts == []
 
     plugin.settings = Settings(owner_umo="", recall_memory=False)
-    off = SimpleNamespace(system_prompt="普通")
+    off = SimpleNamespace(prompt="普通", system_prompt="x", extra_user_content_parts=[])
     asyncio.run(plugin._inject_browsing_memory(SimpleNamespace(_bili_whale_wake=False), off))
-    assert off.system_prompt == "普通"
+    assert off.extra_user_content_parts == []
 
 
 def test_push_sends_only_shares_with_inline_link(tmp_path):

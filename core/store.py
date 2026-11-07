@@ -123,6 +123,8 @@ class Store:
             remembered = re.sub(r"\s+", " ", str(fresh.get("note") or "")).strip()
             if remembered:
                 lead += f"你当时记的：{remembered[:60]}。"
+            # 用户接下来说"这个/刚才那个"，指的就是这一条
+            lead += "他说\"这个\"就是指这条。"
 
         for item in items:
             if fresh is not None and item is fresh:
