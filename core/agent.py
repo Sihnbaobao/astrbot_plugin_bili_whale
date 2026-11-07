@@ -705,7 +705,16 @@ class WakeAgent:
         except BiliError as exc:
             return f"评论没发出去：{exc}"
         self.guard.note_write(bvid=bvid, is_comment=True)
-        self.store.mark_watched({"bvid": bvid, "commented": True})
+        seen = self._seen.get(bvid)
+        self.store.mark_watched(
+            {
+                "bvid": bvid,
+                "title": seen.title if seen else "",
+                "commented": True,
+                "comment": body,
+                "comment_at": datetime.now().isoformat(timespec="seconds"),
+            }
+        )
         return "评了。"
     async def _tool_share(
         self,

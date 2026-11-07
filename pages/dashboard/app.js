@@ -287,6 +287,7 @@ function render(data) {
   renderAccount(data);
   renderQuota(data.quota || {});
   renderWatch(data.watched || [], data.watched_total || 0);
+  renderComments(data.comments || []);
 
   el("planText").textContent = data.plan || "—";
   el("windowText").textContent = data.windows || "—";
@@ -583,6 +584,31 @@ function parseDiaryRounds(text) {
     .filter(function (round) {
       return round.text;
     });
+}
+
+function renderComments(list) {
+  const box = el("commentList");
+  const items = list || [];
+  el("commentCount").textContent = items.length ? items.length + " 条（七天）" : "";
+  if (!items.length) {
+    box.innerHTML = '<li class="empty">还没在评论区说过话。</li>';
+    return;
+  }
+  box.innerHTML = items
+    .map(function (item) {
+      return (
+        '<li><div class="watch-head"><span class="title">' +
+        escapeHtml(item.title || "（无标题）") +
+        '</span><span class="hint">' +
+        escapeHtml(item.at || "") +
+        '</span></div><p class="watch-note">' +
+        escapeHtml(item.text || "") +
+        '</p><div class="watch-meta">' +
+        escapeHtml(item.bvid || "") +
+        "</div></li>"
+      );
+    })
+    .join("");
 }
 
 function renderDiary() {

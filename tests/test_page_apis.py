@@ -191,11 +191,27 @@ def test_status_payload_shape(tmp_path):
         "share",
         "waking",
         "watched",
+        "comments",
         "owner_umo",
     ):
         assert key in data, key
     assert data["quota"]["reads"][1] == 3000
     assert data["logged_in"] is False
+
+
+def test_status_lists_her_comments(tmp_path):
+    plugin = make_plugin(tmp_path)
+    plugin.store.mark_watched(
+        {
+            "bvid": "BV1",
+            "title": "水之都那个忧郁的午后",
+            "comment": "这段雨声真的顶",
+            "comment_at": "2026-11-08T00:20:00",
+        }
+    )
+    data = body(asyncio.run(main.BiliWhalePlugin._api_status(plugin)))
+    assert data["comments"][0]["text"] == "这段雨声真的顶"
+    assert data["comments"][0]["title"] == "水之都那个忧郁的午后"
 
 
 def test_diary_payload_shape(tmp_path):

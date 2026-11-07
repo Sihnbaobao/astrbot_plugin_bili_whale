@@ -595,6 +595,16 @@ class BiliWhalePlugin(Star):
                     for item in recent[:12]
                 ],
                 "watched_total": len(recent),
+                "comments": [
+                    {
+                        "bvid": item.get("bvid", ""),
+                        "title": item.get("title", ""),
+                        "text": item.get("comment", ""),
+                        "at": str(item.get("comment_at", ""))[:16].replace("T", " "),
+                    }
+                    for item in recent
+                    if item.get("comment")
+                ][:10],
             }
         )
 

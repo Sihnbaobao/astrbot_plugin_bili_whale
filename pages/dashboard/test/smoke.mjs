@@ -33,6 +33,9 @@ check(
 );
 check(!markup.includes("pre class=\"diary-body\""), "日记容器不该还是 pre（按轮次分块）");
 
+check(markup.includes('id="commentList"'), "页面应有「她发过的评论」一栏");
+check(source.includes("function renderComments("), "评论应单独渲染");
+
 check(
   source.includes('node.closest("[data-del-bvid]")'),
   "删除按钮应走事件委托（列表会重渲染，绑在元素上会失效）"

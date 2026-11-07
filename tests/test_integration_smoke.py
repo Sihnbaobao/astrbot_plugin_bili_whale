@@ -176,6 +176,11 @@ def test_comment_requires_deep_read(tmp_path):
     assert "评了" in asyncio.run(agent._tool_comment(event, "BV1xx411c7mD", "这段剪得真好"))
     assert client.comments == ["这段剪得真好"]
 
+    # 评论正文要留在记录里，插件页才看得见
+    saved = {item["bvid"]: item for item in store.watched_recent(7)}["BV1xx411c7mD"]
+    assert saved["comment"] == "这段剪得真好"
+    assert saved["commented"] is True
+
     # 同一条视频不重复评
     assert "评论过" in asyncio.run(agent._tool_comment(event, "BV1xx411c7mD", "再说一句"))
 
