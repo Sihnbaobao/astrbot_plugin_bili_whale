@@ -147,7 +147,7 @@ def test_memory_block_leads_with_just_shared(tmp_path):
     # 用人格名而不是"你/他"：这段贴在用户侧，代词会被答成"你发的"
     assert "璃月刚给暴暴发过" in block
     assert "你" not in block
-    assert "暴暴说" in block
+    assert "说"这个"" not in block  # 不预先替对方解释指代
     assert "循环三遍" in block
     assert block.index("她刚给对方发过") < block.index("今天还刷过") if "今天还刷过" in block else True
 

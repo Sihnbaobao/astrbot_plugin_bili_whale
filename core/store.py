@@ -140,8 +140,8 @@ class Store:
                 if len(remembered) > 60:
                     head = head[: stop + 1] if stop >= 20 else head.rstrip("，、；：") + "…"
                 lead += f"当时记的：{head}"
-            # 对方接下来说"这个/刚才那个"，指的就是这一条
-            lead += f'{other_name}说"这个"就是指这条。'
+            # 不再预先解释"这个"指什么：说清楚"刚发过哪条"就够了，
+            # 提前替他说话只会显得像在教她怎么回
 
         for item in items:
             if fresh is not None and item is fresh:
