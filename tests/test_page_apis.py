@@ -46,6 +46,8 @@ def make_plugin(tmp_path) -> object:
     plugin.store = store
     plugin.guard = guard
     plugin.ffmpeg = ""
+    plugin.client = SimpleNamespace(logged_in=False)
+    plugin.debrief = None
     plugin._account = {}
     plugin._fallback_umo = ""
     plugin._last_run = ""
@@ -80,12 +82,17 @@ def test_llm_hook_injects_today_history(tmp_path):
         prompt="你喜欢这个么",
         system_prompt="你是璃月。",
         extra_user_content_parts=[],
+        func_tool=None,
     )
     asyncio.run(
         plugin._inject_browsing_memory(SimpleNamespace(_bili_whale_wake=False), req)
     )
     # 记忆作为额外内容块贴在用户消息后面：紧挨着问题，又不冒充用户说的话
-    assert len(req.extra_user_content_parts) == 1
+    assert len(req.extra_user_content_parts) == 2  # 记忆 + "想刷就去看看"
+    # 聊天里也挂上了 B站 工具，她想刷就能去看
+    names = {tool.name for tool in req.func_tool.tools}
+    assert {"whale_feed", "whale_debrief", "whale_recall"} <= names
+    assert "whale_share" not in names  # 聊天里不给分享/发评论的权限
     assert "百合短篇" in req.extra_user_content_parts[0]["text"]
     assert req.prompt == "你喜欢这个么"
     assert req.system_prompt == "你是璃月。"
@@ -107,41 +114,6 @@ def test_llm_hook_skips_wake_and_disabled(tmp_path):
     off = SimpleNamespace(prompt="普通", system_prompt="x", extra_user_content_parts=[])
     asyncio.run(plugin._inject_browsing_memory(SimpleNamespace(_bili_whale_wake=False), off))
     assert off.extra_user_content_parts == []
-
-
-def test_push_sends_only_shares_with_inline_link(tmp_path):
-    """推送里不该再有"今天看了什么"的汇报，链接跟在正文同一行。"""
-    import asyncio
-
-    plugin = make_plugin(tmp_path)
-    sent: list[str] = []
-
-    async def fake_send(umo, chain):
-        sent.append(chain.chain[0].text)
-
-    plugin.context.send_message = fake_send
-    ok = asyncio.run(
-        plugin._push(
-            "webchat:FriendMessage:1",
-            [{"bvid": "BV1xx411c7mD", "message": "看这个"}],
-        )
-    )
-    assert ok
-    assert sent == ["https://www.bilibili.com/video/BV1xx411c7mD/\n看这个"]
-
-
-def test_push_stays_silent_without_shares(tmp_path):
-    import asyncio
-
-    plugin = make_plugin(tmp_path)
-    called = []
-
-    async def fake_send(umo, chain):
-        called.append(umo)
-
-    plugin.context.send_message = fake_send
-    assert asyncio.run(plugin._push("webchat:FriendMessage:1", [])) is True
-    assert called == []
 
 
 def test_model_error_text_is_not_treated_as_report():

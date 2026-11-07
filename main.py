@@ -18,10 +18,9 @@ from pathlib import Path
 
 from astrbot.api import AstrBotConfig, logger
 from astrbot.api.event import AstrMessageEvent, filter
-from astrbot.api.message_components import Plain
 from astrbot.api.provider import ProviderRequest
 from astrbot.api.star import Context, Star
-from astrbot.core.message.message_event_result import MessageChain
+from astrbot.core.agent.tool import FunctionTool, ToolSet
 from astrbot.core.utils.astrbot_path import get_astrbot_plugin_data_path
 
 from .core.agent import WakeAgent
@@ -216,10 +215,6 @@ class BiliWhalePlugin(Star):
         shots = self.store.prune_shots(30, 200)
         if shots:
             logger.info("[bili-whale] 清掉了 %d 张过期的截图", shots)
-        pending = self.store.take_pending_report()
-        if pending:
-            logger.info("[bili-whale] 发现上一轮没推出去的汇报，尝试补发")
-            asyncio.create_task(self._deliver_pending(pending))
         self._register_web_apis()
         self._running = True
         self._task = asyncio.create_task(self._clock_loop())
@@ -339,63 +334,12 @@ class BiliWhalePlugin(Star):
         self._wake_ok = True
         self._last_run = datetime.now().strftime("%Y-%m-%d %H:%M")
         # 先落盘再推送：推送要等 agent 写完最后一句，那一刻最容易被重启打断
-        # 只推她真正发出去的东西。唤醒汇报那种"我今天看了什么"的流水账不再推送。
-        share_block = agent.shared if "local" in self.settings.share_channels else []
-        if share_block:
-            self.store.save_pending_report("", share_block)
-        if await self._push(umo, share_block):
-            self.store.mark_pending_report_pushed()
-        else:
-            logger.warning("[bili-whale] 汇报没送出去，下次启动会补发")
+        # 定时醒来不再往聊天窗口推东西：她刷了什么，留到聊天里自己提。
+        # 分享通道里的 dm / comment 仍然照常发（那是 B站 侧的动作，不是推送）。
+        logger.info(
+            "[bili-whale] 本轮结束：分享 %d 条（不推送，留到聊天里说）", len(agent.shared)
+        )
         return report
-
-    async def _deliver_pending(self, report: dict) -> None:
-        """补发上一轮没能推送的汇报。
-
-        Args:
-            report: store.take_pending_report() 的返回值。
-        """
-        umo = self.settings.owner_umo or self._fallback_umo
-        if not umo:
-            return
-        if await self._push(umo, report.get("shared") or []):
-            self.store.mark_pending_report_pushed()
-            logger.info("[bili-whale] 补发成功")
-        else:
-            logger.warning("[bili-whale] 补发失败，下次启动再试")
-
-    async def _push(self, umo: str, shared: list[dict]) -> bool:
-        """把汇报推给对方，分享内容附在后面。
-
-        Args:
-            umo: 目标会话。
-            shared: 本次通过闸门的分享。
-
-        Returns:
-            是否送达。没东西可发也算送达，免得无限重试。
-        """
-        if not shared:
-            return True
-        # 不套模板：她的原话 + 链接，一条一条发。标题、分数都是内部信息。
-        # 链接在前、正文在后：链接单独一行更整齐，也方便直接点开
-        chunks = [
-            f"https://www.bilibili.com/video/{item['bvid']}/\n{item['message']}"
-            for item in shared
-        ]
-
-        text = "\n\n".join(chunks)
-        logger.info("[bili-whale] 推送 %d 条分享 → %s", len(shared), umo)
-        for start in range(0, len(text), PUSH_CHUNK):
-            try:
-                await self.context.send_message(
-                    umo, MessageChain(chain=[Plain(text[start : start + PUSH_CHUNK])])
-                )
-            except Exception as exc:
-                logger.error("[bili-whale] 推送失败：%s", exc)
-                return False
-        return True
-
-    # ── 命令 ──
 
     @filter.command("鲸鱼")
     async def whale_command(self, event: AstrMessageEvent):
@@ -508,6 +452,86 @@ class BiliWhalePlugin(Star):
             )
         logger.info("[bili-whale] 插件页接口已注册：%s", "、".join(r[0] for r in routes))
 
+    def _chat_tools(self) -> ToolSet:
+        """聊天里可用的精简工具集。
+
+        只给"看看有什么、读文字、想想看过什么"三件事：
+        深读抽帧要下载整片，聊天里等不了，所以不开放。
+
+        Returns:
+            工具集。
+        """
+        agent = WakeAgent(
+            context=self.context,
+            settings=self.settings,
+            store=self.store,
+            guard=self.guard,
+            client=self.client,
+            debrief=self.debrief,
+            ffmpeg=self.ffmpeg,
+            chat=True,
+        )
+        tools = ToolSet()
+        for name, description, parameters, handler in (
+            (
+                "whale_feed",
+                "去 B站 看看有什么：拉一批候选视频，只含标题/UP/时长/播放。",
+                {
+                    "type": "object",
+                    "properties": {
+                        "source": {
+                            "type": "string",
+                            "description": "候选来源，默认 recommend",
+                            "enum": [
+                                "recommend",
+                                "popular",
+                                "ranking",
+                                "search",
+                                "following",
+                            ],
+                        },
+                        "keyword": {"type": "string", "description": "source=search 时必填"},
+                        "limit": {"type": "integer", "description": "返回条数，默认 8"},
+                    },
+                    "required": [],
+                },
+                agent._tool_feed,
+            ),
+            (
+                "whale_debrief",
+                "读一条视频的文字素材（字幕/弹幕/热评），比 whale_feed 贵但更懂内容。",
+                {
+                    "type": "object",
+                    "properties": {
+                        "bvid": {"type": "string", "description": "视频号"},
+                    },
+                    "required": ["bvid"],
+                },
+                agent._tool_debrief,
+            ),
+            (
+                "whale_recall",
+                "回忆自己以前看过什么，按标题/标签/笔记检索。",
+                {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "关键词"},
+                        "limit": {"type": "integer", "description": "返回条数，默认 5"},
+                    },
+                    "required": ["query"],
+                },
+                agent._tool_recall,
+            ),
+        ):
+            tools.add_tool(
+                FunctionTool(
+                    name=name,
+                    description=description,
+                    parameters=parameters,
+                    handler=handler,
+                )
+            )
+        return tools
     @filter.on_llm_request(priority=-5)
     async def _inject_browsing_memory(
         self, event: AstrMessageEvent, req: ProviderRequest
@@ -533,6 +557,17 @@ class BiliWhalePlugin(Star):
         except Exception as exc:  # 读历史失败不该影响正常对话
             logger.warning("[bili-whale] 拼浏览记忆失败：%s", exc)
             return
+        # 聊天里也给她几个 B站 工具：她想刷就自己去看，不用等定时唤醒
+        try:
+            chat_tools = self._chat_tools()
+            if req.func_tool is None:
+                req.func_tool = chat_tools
+            else:
+                for tool in chat_tools.tools:
+                    req.func_tool.add_tool(tool)
+        except Exception as exc:  # 挂工具失败不该影响对话
+            logger.warning("[bili-whale] 挂载 B站 工具失败：%s", exc)
+
         if not block:
             return
         # 贴在用户这一条消息后面，而不是塞进 system_prompt：
@@ -542,10 +577,14 @@ class BiliWhalePlugin(Star):
         parts = getattr(req, "extra_user_content_parts", None)
         if isinstance(parts, list):
             parts.append({"type": "text", "text": block})
+            # 她想刷就自己刷，不用等定时唤醒，也不用等对方提
+            parts.append(
+                {"type": "text", "text": "（想刷 B站 就自己用 whale_feed 看看，不用等他提。）"}
+            )
         else:
             current = (req.prompt or "").strip()
             req.prompt = f"{current}\n\n{block}" if current else block
-        logger.info("[bili-whale] 已把浏览记录贴到本轮消息后面")
+        logger.info("[bili-whale] 已把浏览记录和 B站 工具挂到本轮对话")
 
     async def _api_status(self):
         """插件页顶部的全部状态。"""

@@ -100,6 +100,7 @@ class WakeAgent:
         client: B站客户端。
         debrief: 素材引擎。
         ffmpeg: ffmpeg 路径，空串表示不可用。
+        chat: 是不是聊天里临时调用的精简模式（限制慢操作）。
     """
 
     def __init__(
@@ -112,7 +113,9 @@ class WakeAgent:
         client: BiliClient,
         debrief: DebriefEngine,
         ffmpeg: str = "",
+        chat: bool = False,
     ) -> None:
+        self.chat = chat
         self.context = context
         self.settings = settings
         self.store = store
@@ -599,6 +602,9 @@ class WakeAgent:
         bvid = str(bvid or "").strip()
         if not bvid.startswith("BV"):
             return "bvid 看起来不对，应该是 BV 开头的一串字符。"
+        if self.chat and deep:
+            # 聊天里抽帧要等一两分钟，等不起，直接按浅读处理
+            deep = False
         if deep and self._deep_reads >= self.settings.max_deep:
             # 深读要下载整片再抽帧，一次几分钟。不限次就是放任她刷一晚上，也会把画质预算吃光。
             return (
