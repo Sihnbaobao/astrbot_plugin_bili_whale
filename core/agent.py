@@ -787,6 +787,9 @@ class WakeAgent:
                 "shared": True,
                 "score": score,
                 "reason": reason,
+                # 记下她当时发出去的原话：下一轮聊天被问到"这个"时，得知道指的是哪条
+                "message": message,
+                "shared_at": datetime.now().isoformat(timespec="seconds"),
             }
         )
         self.shared.append(

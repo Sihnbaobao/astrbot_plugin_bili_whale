@@ -128,6 +128,27 @@ def test_memory_block_reads_like_memory(tmp_path):
     assert "/10" not in block  # 不报表内部分数
 
 
+def test_memory_block_leads_with_just_shared(tmp_path):
+    """刚分享过的那条要顶到最前面，否则用户说"这个"她没有指代对象。"""
+    from datetime import datetime
+
+    store = Store(tmp_path)
+    store.mark_watched(
+        {
+            "bvid": "BV1",
+            "title": "【花谱】日文翻唱《ダイダイダイダイダイキライ》",
+            "shared": True,
+            "score": 8,
+            "message": "这首...一口气喊完，璃月循环三遍了",
+            "shared_at": datetime.now().isoformat(timespec="seconds"),
+        }
+    )
+    block = store.memory_block(days=1)
+    assert "你刚给他发过" in block
+    assert "循环三遍" in block
+    assert block.index("你刚给他发过") < block.index("今天还刷过") if "今天还刷过" in block else True
+
+
 def test_memory_block_respects_limit(tmp_path):
     store = Store(tmp_path)
     for index in range(8):

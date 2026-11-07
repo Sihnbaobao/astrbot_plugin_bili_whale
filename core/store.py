@@ -72,7 +72,7 @@ class Store:
 
         Args:
             days: 回看天数。
-            limit: 最多列几条。
+            limit: 最多提几条。
 
         Returns:
             文本块；这些天什么都没看就返回空串。
@@ -81,40 +81,54 @@ class Store:
         if not items:
             return ""
 
-        items = self.watched_recent(days)
-        if not items:
-            return ""
+        def clean(text: str, width: int) -> str:
+            body = re.sub(r"^【[^】]*】", "", str(text or "")).strip()
+            body = re.sub(r"\s*[—－-]{2,}\s*", " ", body).strip()
+            return body.rstrip("？！。 ，")[:width]
 
-        # 写成"她自己的记忆"，不是系统日志：不列分数、不报条数、不写书名号目录
-        items = self.watched_recent(days)
-        if not items:
-            return ""
-
-        # 写成"她自己的记忆"：不列分数、不报条数、不留频道前缀，只留标题和当时的印象
-        items = self.watched_recent(days)
-        if not items:
-            return ""
-
-        # 写成"她自己的记忆"：不列分数、不报条数、不留频道前缀，只留标题和当时的印象
-        items = self.watched_recent(days)
-        if not items:
-            return ""
-
-        # 只放在一句括号里，不列清单、不报分数 —— 提示词最后一段如果是"账单"，
-        # 模型说话就会跟着变成播报腔，人格被顶掉。
-        bits = []
-        for item in items[:limit]:
-            title = re.sub(r"^【[^】]*】", "", str(item.get("title") or "")).strip()
-            title = re.sub(r"\s*[—－-]{2,}\s*", " ", title).strip()
-            title = title.rstrip("？！。 ，")[:18]
+        def recall(item: dict) -> str:
+            """把一条记录压成"标题（印象）"。"""
+            title = clean(item.get("title") or "", 18) or "（无标题）"
             note = re.sub(r"\s+", " ", str(item.get("note") or "")).strip()
             pieces = [piece for piece in re.split(r"[。！？]", note) if piece.strip()]
             pick = (pieces[-1] if pieces else "").strip()[:16]
             if item.get("shared"):
-                pick = (pick + "，你发给他了").strip("，") if pick else "你发给他了"
-            bits.append(f"{title}（{pick}）" if pick else title)
-        return "（你今天在 B站 刷到过：" + "；".join(bits) + "。）"
+                pick = f"{pick}，你发给他了" if pick else "你发给他了"
+            return f"{title}（{pick}）" if pick else title
 
+        # 刚发出去的那条要单独点名：用户下一句说"这个"时，她得有指代对象
+        fresh: dict | None = None
+        for item in items:
+            stamp = str(item.get("shared_at") or "")
+            if not item.get("shared") or not stamp:
+                continue
+            try:
+                age = (datetime.now() - datetime.fromisoformat(stamp)).total_seconds()
+            except ValueError:
+                continue
+            if age < 8 * 3600:
+                fresh = item
+                break
+
+        parts: list[str] = []
+        lead = ""
+        if fresh is not None:
+            title = clean(fresh.get("title") or "", 20) or "（无标题）"
+            said = str(fresh.get("message") or "").strip()[:32]
+            lead = f"你刚给他发过 {title}"
+            if said:
+                lead += f"，你说「{said}」"
+            lead += "。"
+
+        for item in items:
+            if fresh is not None and item is fresh:
+                continue
+            if len(parts) >= limit:
+                break
+            parts.append(recall(item))
+
+        body = lead + (("今天还刷过：" + "；".join(parts) + "。") if parts else "")
+        return "（记忆：" + body + "）"
     def liked_before(self, bvid: str) -> bool:
         """这条是不是已经点过赞了。"""
         return str(bvid) in (self.load_state().get("liked") or {})
