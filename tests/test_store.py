@@ -157,7 +157,7 @@ def test_memory_block_respects_limit(tmp_path):
     for index in range(8):
         store.mark_watched({"bvid": f"BV{index}", "title": f"第{index}条"})
     block = store.memory_block(days=1, limit=3)
-    assert block.count("；") == 2  # 三条，用分号串成一句
+    assert block.count("、") == 2  # 三条，用顿号串成一句
     assert "第3条" not in block
     assert block.startswith("（") and block.endswith("。）")  # 一句括号里的记忆，不是清单
 
