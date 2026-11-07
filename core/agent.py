@@ -300,11 +300,13 @@ class WakeAgent:
         lines.append("")
         lines.append("【今天】")
         lines.append(
-            f"最多扫 {self.settings.max_scan} 条、深读 {self.settings.max_deep} 条，"
-            f"分享最多 {self.settings.share_daily} 条且评分不低于 {self.settings.share_min_score}。"
+            f"最多扫 {self.settings.max_scan} 条、深读 {self.settings.max_deep} 条。"
+        )
+        lines.append(
+            f"想给他看的就发（最多 {self.settings.share_daily} 条，评分不低于 "
+            f"{self.settings.share_min_score}）；没有想发的就空着，空着很正常。"
         )
         lines.append("两本日记都要写。不想看也写，说明为什么。")
-        lines.append("做完以后，写一段汇报给对方。")
         return "\n".join(lines)
 
     # ── 工具集 ──
