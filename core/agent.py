@@ -715,7 +715,7 @@ class WakeAgent:
                 "comment_at": datetime.now().isoformat(timespec="seconds"),
             }
         )
-        return "评了。"
+        return f"评了。今天还剩 {self.guard.comment_left()} 条。"
     async def _tool_share(
         self,
         event: AstrMessageEvent,

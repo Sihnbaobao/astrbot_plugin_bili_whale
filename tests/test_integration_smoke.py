@@ -173,7 +173,9 @@ def test_comment_requires_deep_read(tmp_path):
     assert "太长" in asyncio.run(agent._tool_comment(event, "BV1xx411c7mD", "啊" * 300))
     assert client.comments == []
 
-    assert "评了" in asyncio.run(agent._tool_comment(event, "BV1xx411c7mD", "这段剪得真好"))
+    result = asyncio.run(agent._tool_comment(event, "BV1xx411c7mD", "这段剪得真好"))
+    assert "评了" in result
+    assert "还剩 1 条" in result  # 她要能知道今天还剩几条
     assert client.comments == ["这段剪得真好"]
 
     # 评论正文要留在记录里，插件页才看得见

@@ -784,6 +784,11 @@ class Guard:
                 state["commented"][bvid] = time.time()
         self._flush(state)
 
+    def comment_left(self) -> int:
+        """今天还能自己发几条评论。"""
+        state = self._state()
+        return max(0, self.comment_daily - int(state["comments"]))
+
     def mark_commented(self, bvid: str) -> None:
         """记下"这条已经评论过"，不额外计额度。
 
@@ -820,6 +825,7 @@ class Guard:
             f"读 {state['reads']}/{self.read_daily}",
             f"写 {state['writes']}/{self.write_daily}",
             f"分享 {state['shares']}/{self.share_daily}",
+            f"评论 {state['comments']}/{self.comment_daily}",
         ]
         if left:
             parts.append(f"熔断 {left // 60 + 1} 分钟")
