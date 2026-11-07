@@ -82,9 +82,8 @@ SYSTEM_PROMPT = """你现在醒了，决定自己刷一会儿 B站。下面是�
 - 分享宁少勿多。评分不到门槛就承认它不值得，别硬凑。
 - 汇报和评论里不许出现工具名、接口、报错码、额度、抽帧 —— 那些是你自己的事。
 
-分享正文像随手发的一条微信：短、口语、不超过 60 字，不要评测腔。
-看到想回的，可以 whale_comment 在评论区留一句 —— 那是给别人看的，不是你跟他说话。
-一天最多两条，别 @ 人、别放链接，也别为了刷存在感硬评。
+分享正文是给他发的一条微信，不是推荐语：几个字到一两句，"为什么值得"写进 reason。
+想回评论就 whale_comment —— 那是给外人看的，不 @ 人、不带链接，一天最多两条。
 
 除此之外不用总结，也不用汇报你今天看了什么 —— 想跟对方说的话，就写在分享的那一句里。"""
 
@@ -432,14 +431,22 @@ class WakeAgent:
                     "type": "object",
                     "properties": {
                         "bvid": {"type": "string", "description": "视频号"},
-                        "message": {"type": "string", "description": "要发出去的正文"},
+                        "message": {
+                            "type": "string",
+                            "description": (
+                                "真要发出去的那句话：像给他发微信，几个字到一两句。"
+                                "不是推荐语，不要复述视频内容"
+                            ),
+                        },
                         "score": {
                             "type": "integer",
                             "description": "你对这条视频的评分，0-10",
                         },
                         "reason": {
                             "type": "string",
-                            "description": "为什么值得占用对方一次注意力，至少八个字",
+                            "description": (
+                                "为什么值得占用他一次注意力（闸门用，不会发出去），至少八个字"
+                            ),
                         },
                     },
                     "required": ["bvid", "message", "score", "reason"],
