@@ -64,7 +64,13 @@ class Store:
         """整份写回 state.json。"""
         _atomic_write(self.state_path, json.dumps(state, ensure_ascii=False, indent=2))
 
-    def memory_block(self, days: int = 1, limit: int = 3) -> str:
+    def memory_block(
+        self,
+        days: int = 1,
+        limit: int = 3,
+        self_name: str = "她",
+        other_name: str = "对方",
+    ) -> str:
         """拼一段"今天刷过什么"的简短上下文。
 
         给普通聊天用：她醒来那一轮结束之后，上下文就没了，
@@ -73,6 +79,8 @@ class Store:
         Args:
             days: 回看天数。
             limit: 最多提几条。
+            self_name: 她在提示词里的自称（用人格名，比"她"清楚）。
+            other_name: 对方的称呼。
 
         Returns:
             文本块；这些天什么都没看就返回空串。
@@ -93,7 +101,7 @@ class Store:
             pieces = [piece for piece in re.split(r"[。！？]", note) if piece.strip()]
             pick = (pieces[-1] if pieces else "").strip()[:16]
             if item.get("shared"):
-                pick = f"{pick}，已发给对方" if pick else "已发给对方"
+                pick = f"{pick}，已发给{other_name}" if pick else f"已发给{other_name}"
             return f"{title}（{pick}）" if pick else title
 
         # 刚发出去的那条要单独点名：用户下一句说"这个"时，她得有指代对象
@@ -116,7 +124,7 @@ class Store:
             title = clean(fresh.get("title") or "", 20) or "（无标题）"
             said = str(fresh.get("message") or "").strip()[:32]
             # 全程第三人称：这段是贴在"用户侧"的附注，用"你/他"会被读成对方在说话
-            lead = f"她刚给对方发过 {title}"
+            lead = f"{self_name}刚给{other_name}发过 {title}"
             if said:
                 lead += f"，发的时候说「{said}」"
             lead += "。"
@@ -130,7 +138,7 @@ class Store:
                     head = head[: stop + 1] if stop >= 20 else head.rstrip("，、；：") + "…"
                 lead += f"当时记的：{head}"
             # 对方接下来说"这个/刚才那个"，指的就是这一条
-            lead += '对方说"这个"就是指这条。'
+            lead += f'{other_name}说"这个"就是指这条。'
 
         for item in items:
             if fresh is not None and item is fresh:

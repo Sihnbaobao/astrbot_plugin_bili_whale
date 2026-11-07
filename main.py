@@ -524,7 +524,12 @@ class BiliWhalePlugin(Star):
         if getattr(event, "_bili_whale_wake", False) or not self.settings.recall_memory:
             return
         try:
-            block = self.store.memory_block(days=1)
+            persona = str(self.settings.persona_id or "").strip()
+            block = self.store.memory_block(
+                days=1,
+                self_name=persona if persona and persona != "default" else "她",
+                other_name=self.settings.owner_name or "对方",
+            )
         except Exception as exc:  # 读历史失败不该影响正常对话
             logger.warning("[bili-whale] 拼浏览记忆失败：%s", exc)
             return
