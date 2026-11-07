@@ -64,7 +64,7 @@ class Store:
         """整份写回 state.json。"""
         _atomic_write(self.state_path, json.dumps(state, ensure_ascii=False, indent=2))
 
-    def memory_block(self, days: int = 1, limit: int = 6) -> str:
+    def memory_block(self, days: int = 1, limit: int = 3) -> str:
         """拼一段"今天刷过什么"的简短上下文。
 
         给普通聊天用：她醒来那一轮结束之后，上下文就没了，
@@ -96,18 +96,24 @@ class Store:
             return ""
 
         # 写成"她自己的记忆"：不列分数、不报条数、不留频道前缀，只留标题和当时的印象
-        lines = ["你今天在 B站 刷到过这些："]
+        items = self.watched_recent(days)
+        if not items:
+            return ""
+
+        # 只放在一句括号里，不列清单、不报分数 —— 提示词最后一段如果是"账单"，
+        # 模型说话就会跟着变成播报腔，人格被顶掉。
+        bits = []
         for item in items[:limit]:
             title = re.sub(r"^【[^】]*】", "", str(item.get("title") or "")).strip()
             title = re.sub(r"\s*[—－-]{2,}\s*", " ", title).strip()
-            title = title.rstrip("？！。 ，")[:24]
+            title = title.rstrip("？！。 ，")[:18]
             note = re.sub(r"\s+", " ", str(item.get("note") or "")).strip()
-            bits = [piece for piece in re.split(r"[。！？]", note) if piece.strip()]
-            # 最后一句通常才是她自己的结论（"结论…""璃月记住的是…"）
-            pick = (bits[-1] if bits else "").strip()[:36]
-            tail = "；后来发给他了" if item.get("shared") else ""
-            lines.append(f"· {title}" + (f" —— {pick}" if pick else "") + tail)
-        return "\n".join(lines)
+            pieces = [piece for piece in re.split(r"[。！？]", note) if piece.strip()]
+            pick = (pieces[-1] if pieces else "").strip()[:16]
+            if item.get("shared"):
+                pick = (pick + "，你发给他了").strip("，") if pick else "你发给他了"
+            bits.append(f"{title}（{pick}）" if pick else title)
+        return "（你今天在 B站 刷到过：" + "；".join(bits) + "。）"
 
     def liked_before(self, bvid: str) -> bool:
         """这条是不是已经点过赞了。"""
