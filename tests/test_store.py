@@ -124,7 +124,7 @@ def test_memory_block_reads_like_memory(tmp_path):
     assert "百合短篇" in block
     assert "某频道" not in block  # 频道前缀去掉
     assert "璃月记住的是那一幕" in block  # 取她自己的结论那句
-    assert "发给他了" in block
+    assert "已发给对方" in block
     assert "/10" not in block  # 不报表内部分数
 
 
@@ -144,9 +144,11 @@ def test_memory_block_leads_with_just_shared(tmp_path):
         }
     )
     block = store.memory_block(days=1)
-    assert "你刚给他发过" in block
+    # 第三人称：这段贴在用户侧，用"你/他"会被答成"你发的"
+    assert "她刚给对方发过" in block
+    assert "你" not in block
     assert "循环三遍" in block
-    assert block.index("你刚给他发过") < block.index("今天还刷过") if "今天还刷过" in block else True
+    assert block.index("她刚给对方发过") < block.index("今天还刷过") if "今天还刷过" in block else True
 
 
 def test_memory_block_respects_limit(tmp_path):

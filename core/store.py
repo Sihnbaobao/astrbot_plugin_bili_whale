@@ -93,7 +93,7 @@ class Store:
             pieces = [piece for piece in re.split(r"[。！？]", note) if piece.strip()]
             pick = (pieces[-1] if pieces else "").strip()[:16]
             if item.get("shared"):
-                pick = f"{pick}，你发给他了" if pick else "你发给他了"
+                pick = f"{pick}，已发给对方" if pick else "已发给对方"
             return f"{title}（{pick}）" if pick else title
 
         # 刚发出去的那条要单独点名：用户下一句说"这个"时，她得有指代对象
@@ -115,16 +115,17 @@ class Store:
         if fresh is not None:
             title = clean(fresh.get("title") or "", 20) or "（无标题）"
             said = str(fresh.get("message") or "").strip()[:32]
-            lead = f"你刚给他发过 {title}"
+            # 全程第三人称：这段是贴在"用户侧"的附注，用"你/他"会被读成对方在说话
+            lead = f"她刚给对方发过 {title}"
             if said:
-                lead += f"，你说「{said}」"
+                lead += f"，发的时候说「{said}」"
             lead += "。"
             # 被问到"这个视频讲了什么"时，光有标题和一句感慨不够，把她当时记的展开一段
             remembered = re.sub(r"\s+", " ", str(fresh.get("note") or "")).strip()
             if remembered:
-                lead += f"你当时记的：{remembered[:60]}。"
-            # 用户接下来说"这个/刚才那个"，指的就是这一条
-            lead += '他说"这个"就是指这条。'
+                lead += f"当时记的：{remembered[:60]}。"
+            # 对方接下来说"这个/刚才那个"，指的就是这一条
+            lead += '对方说"这个"就是指这条。'
 
         for item in items:
             if fresh is not None and item is fresh:
