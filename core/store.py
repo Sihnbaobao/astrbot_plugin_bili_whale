@@ -119,6 +119,10 @@ class Store:
             if said:
                 lead += f"，你说「{said}」"
             lead += "。"
+            # 被问到"这个视频讲了什么"时，光有标题和一句感慨不够，把她当时记的展开一段
+            remembered = re.sub(r"\s+", " ", str(fresh.get("note") or "")).strip()
+            if remembered:
+                lead += f"你当时记的：{remembered[:60]}。"
 
         for item in items:
             if fresh is not None and item is fresh:
