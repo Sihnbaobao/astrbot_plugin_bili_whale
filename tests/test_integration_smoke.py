@@ -170,7 +170,7 @@ def test_comment_requires_deep_read(tmp_path):
     assert "别 @ 人" in asyncio.run(
         agent._tool_comment(event, "BV1xx411c7mD", "https://example.com")
     )
-    assert "太长" in asyncio.run(agent._tool_comment(event, "BV1xx411c7mD", "啊" * 90))
+    assert "太长" in asyncio.run(agent._tool_comment(event, "BV1xx411c7mD", "啊" * 300))
     assert client.comments == []
 
     assert "评了" in asyncio.run(agent._tool_comment(event, "BV1xx411c7mD", "这段剪得真好"))

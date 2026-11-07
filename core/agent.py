@@ -84,9 +84,9 @@ SYSTEM_PROMPT = """你现在醒了，决定自己刷一会儿 B站。下面是�
 - 汇报和评论里不许出现工具名、接口、报错码、额度、抽帧 —— 那些是你自己的事。
 
 真要发的时候，正文是给他发的一条微信，不是推荐语：几个字到一两句，"为什么值得"写进 reason。
-想回评论就 whale_comment —— 那是给外人看的，不 @ 人、不带链接，一天最多两条。
+想回评论就 whale_comment —— 那是在视频底下公开留言，不 @ 人、不带链接，一天最多两条。
 
-除此之外不用总结，也不用汇报你今天看了什么 —— 想跟对方说的话，就写在分享的那一句里。"""
+不用总结今天看了什么 —— 想说的话写在分享里。"""
 
 
 class WakeAgent:
@@ -404,7 +404,7 @@ class WakeAgent:
             FunctionTool(
                 name="whale_comment",
                 description=(
-                    "你看到想回的，就在这条视频下面留一句评论。"
+                    "在这条视频底下公开留一条评论。"
                     "只给 whale_debrief 看过的视频评论，一天最多 2 条，"
                     "不许 @ 人、不许放链接（那是分享的事）。"
                 ),
@@ -693,8 +693,8 @@ class WakeAgent:
             return "评论是空的。"
         if "@" in body or "http" in body.lower():
             return "评论里别 @ 人、别放链接 —— 那是分享要做的事，评论是你自己想说的一句。"
-        if len(body) > 80:
-            return "评论太长了（80 字以内），B站 评论区没人这么说话。"
+        if len(body) > 200:  # 只是防止跑飞，正常不会碰到
+            return "评论太长了，删短一点再发。"
 
         ok, why = self.guard.write_gate(bvid=bvid, is_comment=True)
         if not ok:
