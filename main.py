@@ -565,15 +565,14 @@ class BiliWhalePlugin(Star):
         except Exception as exc:  # 挂工具失败不该影响对话
             logger.warning("[bili-whale] 挂载 B站 工具失败：%s", exc)
 
-        if not block:
-            return
         # 贴在用户这一条消息后面，而不是塞进 system_prompt：
         # system_prompt 前面隔着整段人格和规则，模型基本用不上；挨着问题才管用。
         # 用 extra_user_content_parts 而不是改 prompt —— 那样会被当成用户说的话。
         # priority=-5 比人格插件（-1）更晚执行，所以不会被它重写的 prompt 覆盖。
         parts = getattr(req, "extra_user_content_parts", None)
         if isinstance(parts, list):
-            parts.append({"type": "text", "text": block})
+            if block:
+                parts.append({"type": "text", "text": block})
             # 她想刷就自己刷，不用等定时唤醒，也不用等对方提
             parts.append(
                 {"type": "text", "text": "（想刷 B站 就自己用 whale_feed 看看，不用等他提。）"}
