@@ -206,7 +206,9 @@ def test_llm_hook_points_at_linked_video(tmp_path):
     )
     asyncio.run(plugin._inject_browsing_memory(event, req))
     texts = [part["text"] for part in req.extra_user_content_parts]
-    assert any("BV1XuYa6wEdC" in text and "whale_debrief" in text for text in texts)
+    hint = next(text for text in texts if "BV1XuYa6wEdC" in text)
+    assert "whale_debrief" in hint
+    assert "他发来的" in hint and "不是你自己刷到的" in hint
 
 
 def test_diary_payload_shape(tmp_path):

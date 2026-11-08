@@ -449,7 +449,7 @@ class BiliWhalePlugin(Star):
             )
         logger.info("[bili-whale] 插件页接口已注册：%s", "、".join(r[0] for r in routes))
 
-    def _chat_tools(self) -> ToolSet:
+    def _chat_tools(self, linked: list[str] | None = None) -> ToolSet:
         """聊天里可用的精简工具集。
 
         只给"看看有什么、读文字、想想看过什么"三件事：
@@ -467,6 +467,7 @@ class BiliWhalePlugin(Star):
             debrief=self.debrief,
             ffmpeg=self.ffmpeg,
             chat=True,
+            linked=set(linked or ()),
         )
         tools = ToolSet()
         for name, description, parameters, handler in (
@@ -554,9 +555,13 @@ class BiliWhalePlugin(Star):
         except Exception as exc:  # 读历史失败不该影响正常对话
             logger.warning("[bili-whale] 拼浏览记忆失败：%s", exc)
             return
+        # 别人发的链接：能看，但要让她知道这不是自己刷到的
+        text = str(getattr(event, "message_str", "") or "")
+        bvids = re.findall(r"BV[0-9A-Za-z]{10}", text)
+
         # 聊天里也给她几个 B站 工具：她想刷就自己去看，不用等定时唤醒
         try:
-            chat_tools = self._chat_tools()
+            chat_tools = self._chat_tools(bvids)
             if req.func_tool is None:
                 req.func_tool = chat_tools
             else:
@@ -577,15 +582,13 @@ class BiliWhalePlugin(Star):
             parts.append(
                 {"type": "text", "text": "（想刷 B站 就自己用 whale_feed 看看，不用等他提。）"}
             )
-            # 有人丢了 B站 链接：告诉她这条能点进去看，不然她只会当普通消息回
-            text = str(getattr(event, "message_str", "") or "")
-            bvids = re.findall(r"BV[0-9A-Za-z]{10}", text)
+            # 有人丢了 B站 链接：说清是谁给的，别让她以为是自己刷到的
             if bvids:
                 parts.append(
                     {
                         "type": "text",
                         "text": (
-                            f"（他发的是一条 B站 视频（{bvids[0]}），"
+                            f"（这是他发来的一条视频（{bvids[0]}），不是你自己刷到的。"
                             "想看就用 whale_debrief 点进去。）"
                         ),
                     }
@@ -639,6 +642,7 @@ class BiliWhalePlugin(Star):
                         "score": item.get("score"),
                         "tags": [str(tag) for tag in (item.get("tags") or [])[:3]],
                         "note": str(item.get("note") or "")[:80],
+                        "via": str(item.get("via") or "self"),
                     }
                     for item in recent[:12]
                 ],

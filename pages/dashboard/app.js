@@ -264,10 +264,14 @@ function renderWatch(list, total) {
         '<button class="del" type="button" title="删掉这条记录" data-del-bvid="' +
         escapeHtml(item.bvid || "") +
         '">×</button>';
+      const from = item.via === "link"
+        ? '<span class="via">别人发的</span>'
+        : "";
       return (
         '<li><div class="watch-head"><span class="title">' +
         escapeHtml(item.title || "（无标题）") +
         "</span>" +
+        from +
         score +
         remove +
         '</div><div class="watch-meta">' +

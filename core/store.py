@@ -85,7 +85,8 @@ class Store:
         Returns:
             文本块；这些天什么都没看就返回空串。
         """
-        items = self.watched_recent(days)
+        # 别人发来的链接不算她"刷过"的东西，不进这段记忆
+        items = [item for item in self.watched_recent(days) if item.get("via") != "link"]
         if not items:
             return ""
 
@@ -337,7 +338,8 @@ class Store:
         Returns:
             含 count / shared / avg_score / tags / tnames 的字典。
         """
-        items = self.watched_recent(days)
+        # 只统计她自己刷的：别人发来的链接反映的是别人的口味
+        items = [item for item in self.watched_recent(days) if item.get("via") != "link"]
         tag_counts: dict[str, int] = {}
         tname_counts: dict[str, int] = {}
         scores: list[float] = []

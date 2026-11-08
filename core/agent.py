@@ -114,8 +114,11 @@ class WakeAgent:
         debrief: DebriefEngine,
         ffmpeg: str = "",
         chat: bool = False,
+        linked: frozenset[str] | set[str] = frozenset(),
     ) -> None:
         self.chat = chat
+        # 别人在聊天里发来的视频号：看可以，但不算她自己刷到的
+        self.linked = set(linked)
         self.context = context
         self.settings = settings
         self.store = store
@@ -622,6 +625,8 @@ class WakeAgent:
                 "desc": result.desc[:160],
                 "tags": result.tags,
                 "deep": bool(deep),
+                # 别人发来的链接：看过，但不是她自己挑的
+                "via": "link" if bvid in self.linked else "self",
             }
         )
 

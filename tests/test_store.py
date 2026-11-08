@@ -279,6 +279,21 @@ def test_prune_drops_old_records(tmp_path):
     assert [item["bvid"] for item in store.watched_recent(400)] == ["NEW"]
 
 
+def test_links_from_others_stay_out_of_her_taste(tmp_path):
+    """别人发来的链接：看过，但不能算她自己刷的。"""
+    store = Store(tmp_path)
+    store.mark_watched({"bvid": "BV1", "title": "别人发的", "via": "link", "tags": ["猫"]})
+    store.mark_watched({"bvid": "BV2", "title": "自己刷的", "via": "self", "tags": ["鬼畜"]})
+
+    block = store.memory_block(days=1)
+    assert "别人发的" not in block
+    assert "自己刷的" in block
+
+    counts = store.stats(30)
+    assert counts["count"] == 1
+    assert counts["tags"] == [("鬼畜", 1)]
+
+
 def test_corrupt_state_returns_empty(tmp_path):
     store = Store(tmp_path)
     store.state_path.write_text("{半截", encoding="utf-8")
