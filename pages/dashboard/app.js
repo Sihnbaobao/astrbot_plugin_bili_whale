@@ -84,7 +84,7 @@ const CONFIG_LAYOUT = [
       { key: "SHARE_MIN_SCORE", label: "评分门槛", type: "number", min: 0, max: 10, hint: "她给每条片子打 0-10 分，低于门槛不发。默认 7 分。" },
       { key: "ENABLE_LIKE", label: "允许点赞", type: "checkbox", hint: "只给真正深读过的视频点，一天最多 5 条，同一条不会重复点。点赞和分享是两回事。" },
       { key: "ENABLE_MEMORY", label: "聊天时记得刷过什么", type: "checkbox", hint: "在普通对话里，把今天刷过的几条挂进上下文，你问她「刚才看了什么」她能答上来。关掉的话她只在醒来那一轮里有记忆。" },
-      { key: "ENABLE_COMMENT", label: "允许她自己评论", type: "checkbox", hint: "看完有话想说时，她在视频评论区留一句（不 @ 人、不带链接）。一天最多 2 条，同一条视频不重复评。关掉则只在分享时评论。" },
+      { key: "ENABLE_COMMENT", label: "允许她自己评论", type: "checkbox", hint: "默认关：B站 对信用低的号有隐性限制，评论只有自己看得见，别人看不到。等账号养起来再开。开启后一天最多 2 条，不 @ 人、不带链接。" },
     ],
   },
   {

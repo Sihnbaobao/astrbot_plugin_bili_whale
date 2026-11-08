@@ -44,7 +44,7 @@ class Settings:
     share_min_score: int = 7
     share_channels: tuple[str, ...] = ("local",)
     enable_like: bool = True
-    enable_comment: bool = True
+    enable_comment: bool = False
     recall_memory: bool = True
     frames: bool = True
     likes: tuple[str, ...] = ()
@@ -105,7 +105,7 @@ class Settings:
             or ("local",),
             frames=bool(get("ENABLE_FRAMES", True)),
             enable_like=bool(get("ENABLE_LIKE", True)),
-            enable_comment=bool(get("ENABLE_COMMENT", True)),
+            enable_comment=bool(get("ENABLE_COMMENT", False)),
             recall_memory=bool(get("ENABLE_MEMORY", True)),
             likes=tuple(_as_list(get("PREFER_LIKE"))),
             dislikes=tuple(_as_list(get("PREFER_DISLIKE"))),

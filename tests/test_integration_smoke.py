@@ -160,7 +160,7 @@ def test_comment_requires_deep_read(tmp_path):
     client = FakeClient()
     agent = WakeAgent(
         context=None,
-        settings=Settings(owner_umo="webchat:FriendMessage:1"),
+        settings=Settings(owner_umo="webchat:FriendMessage:1", enable_comment=True),
         store=store,
         guard=Guard(store, write_cooldown=0),
         client=client,
@@ -220,6 +220,7 @@ def test_comment_shares_dedupe_with_share_channel(tmp_path):
             owner_umo="webchat:FriendMessage:1",
             owner_mid="999",
             share_channels=("comment",),
+            enable_comment=True,
         ),
         store=store,
         guard=Guard(store, write_cooldown=0),

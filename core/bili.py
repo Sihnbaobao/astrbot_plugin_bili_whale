@@ -861,6 +861,12 @@ class BiliClient:
                 "message": message,
                 "plat": 1,
                 "csrf": self.bili_jct,
+                # 网页端会带这几个，裸调接口容易被单独判定成机器
+                "gaia_source": "main_web",
+                "scene": "main",
+                "from_spmid": "",
+                "root": 0,
+                "parent": 0,
             },
             referer="https://www.bilibili.com/",
         )
