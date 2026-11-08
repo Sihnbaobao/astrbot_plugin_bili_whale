@@ -153,7 +153,7 @@ def test_comment_requires_deep_read(tmp_path):
         async def view(self, bvid):
             return {"aid": 1}
 
-        async def post_comment(self, aid, text):
+        async def post_comment(self, aid, text, bvid=""):
             self.comments.append(text)
 
     store = Store(tmp_path)
@@ -207,7 +207,7 @@ def test_comment_shares_dedupe_with_share_channel(tmp_path):
         async def view(self, bvid):
             return {"aid": 1}
 
-        async def post_comment(self, aid, text):
+        async def post_comment(self, aid, text, bvid=""):
             return None
 
         async def send_dm(self, mid, text):
@@ -365,7 +365,7 @@ def test_share_fans_out_to_selected_channels(tmp_path):
         async def view(self, bvid):
             return {"aid": 123}
 
-        async def post_comment(self, aid, message):
+        async def post_comment(self, aid, message, bvid=""):
             self.comments.append((aid, message))
 
         async def send_dm(self, mid, text):
@@ -410,7 +410,7 @@ def test_share_without_owner_mid_reports_failure(tmp_path):
         async def view(self, bvid):
             return {"aid": 1}
 
-        async def post_comment(self, aid, message):
+        async def post_comment(self, aid, message, bvid=""):
             raise AssertionError("不该走到这里")
 
         async def send_dm(self, mid, text):

@@ -695,7 +695,7 @@ class WakeAgent:
             return f"现在评不了：{why}"
         try:
             aid = int((await self.client.view(bvid)).get("aid") or 0)
-            await self.client.post_comment(aid, body)
+            await self.client.post_comment(aid, body, bvid=bvid)
         except BiliError as exc:
             return f"评论没发出去：{exc}"
         self.guard.note_write(bvid=bvid, is_comment=True)
@@ -763,7 +763,9 @@ class WakeAgent:
                 continue
             try:
                 if channel == "comment":
-                    await self.client.post_comment(aid, clip_text(message, COMMENT_LIMIT))
+                    await self.client.post_comment(
+                        aid, clip_text(message, COMMENT_LIMIT), bvid=bvid
+                    )
                     delivered.append("视频评论区")
                 elif channel == "dm":
                     if not self.settings.owner_mid:

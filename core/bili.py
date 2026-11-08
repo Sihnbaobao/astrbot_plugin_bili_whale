@@ -837,12 +837,16 @@ class BiliClient:
             raise BiliError("私信没发出去：平台没有返回消息 ID")
         return "已送达"
 
-    async def post_comment(self, aid: int, message: str) -> dict:
+    async def post_comment(self, aid: int, message: str, bvid: str = "") -> dict:
         """在视频下发一条评论。
+
+        尽量贴近浏览器的发法：先打开一次视频页拿到会话 cookie（b_nut/buvid4 之类），
+        再带着完整的头和 cookie 发评论。裸调接口容易被单独判定成机器。
 
         Args:
             aid: 视频 aid。
             message: 正文，纯文本。
+            bvid: 视频号，用于预热会话；缺省则跳过预热。
 
         Returns:
             接口返回的 data。
@@ -852,21 +856,67 @@ class BiliClient:
         """
         if not self.logged_in:
             raise BiliError("没有登录态，发不了评论")
-        return await self._request(
-            "POST",
-            "https://api.bilibili.com/x/v2/reply/add",
-            data={
-                "type": 1,
-                "oid": aid,
-                "message": message,
-                "plat": 1,
-                "csrf": self.bili_jct,
-                # 网页端会带这几个，裸调接口容易被单独判定成机器
-                "gaia_source": "main_web",
-                "scene": "main",
-                "from_spmid": "",
-                "root": 0,
-                "parent": 0,
-            },
-            referer="https://www.bilibili.com/",
-        )
+
+        session = await self._ensure_session()
+        cookies = self.cookie_header()
+        referer = f"https://www.bilibili.com/video/{bvid}/" if bvid else "https://www.bilibili.com/"
+
+        if bvid:
+            # 先像浏览器那样把视频页打开一次，让 B站 下发会话 cookie
+            try:
+                await self._throttled()
+                async with session.get(
+                    referer,
+                    headers={"user-agent": UA, "cookie": cookies, "referer": "https://www.bilibili.com/"},
+                    proxy=self.proxy or None,
+                ) as page:
+                    extra = {key: morsel.value for key, morsel in page.cookies.items()}
+                    await page.read()
+                if extra:
+                    cookies = cookies + "; " + "; ".join(f"{k}={v}" for k, v in extra.items())
+            except (aiohttp.ClientError, asyncio.TimeoutError):
+                pass
+
+        headers = {
+            "user-agent": UA,
+            "cookie": cookies,
+            "referer": referer,
+            "origin": "https://www.bilibili.com",
+            "accept": "application/json, text/plain, */*",
+            "x-requested-with": "XMLHttpRequest",
+        }
+        data = {
+            "type": 1,
+            "oid": aid,
+            "message": message,
+            "plat": 1,
+            "csrf": self.bili_jct,
+            "gaia_source": "main_web",
+            "scene": "main",
+            "from_spmid": "",
+            "root": 0,
+            "parent": 0,
+        }
+
+        await self._throttled()
+        try:
+            async with session.post(
+                "https://api.bilibili.com/x/v2/reply/add",
+                data=data,
+                headers=headers,
+                proxy=self.proxy or None,
+            ) as resp:
+                if resp.status in (412, 429):
+                    self.guard.pause(300, f"HTTP {resp.status}")
+                    raise BiliError(f"B站返回 HTTP {resp.status}（风控），已暂停 5 分钟")
+                payload = await resp.json(content_type=None)
+        except asyncio.TimeoutError as exc:
+            raise BiliError("评论请求超时") from exc
+        except aiohttp.ClientError as exc:
+            raise BiliError(f"评论请求失败：{exc}") from exc
+
+        code = int((payload or {}).get("code", -1))
+        if code != 0:
+            reason = (payload or {}).get("message", "")
+            raise BiliError(f"评论没发出去：{reason}（code={code}）")
+        return payload.get("data") or {}
