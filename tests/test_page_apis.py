@@ -186,6 +186,29 @@ def test_status_lists_her_comments(tmp_path):
     assert data["comments"][0]["title"] == "水之都那个忧郁的午后"
 
 
+def test_llm_hook_points_at_linked_video(tmp_path):
+    """群里有人发 B站 链接时，要告诉她是哪条、能点进去看。"""
+    import asyncio
+    from types import SimpleNamespace
+
+    plugin = make_plugin(tmp_path)
+    plugin.settings = Settings(owner_umo="", recall_memory=True)
+
+    req = SimpleNamespace(
+        prompt="看看这个",
+        system_prompt="你是璃月。",
+        extra_user_content_parts=[],
+        func_tool=None,
+    )
+    event = SimpleNamespace(
+        _bili_whale_wake=False,
+        message_str="【分享】https://www.bilibili.com/video/BV1XuYa6wEdC/ 这个好看",
+    )
+    asyncio.run(plugin._inject_browsing_memory(event, req))
+    texts = [part["text"] for part in req.extra_user_content_parts]
+    assert any("BV1XuYa6wEdC" in text and "whale_debrief" in text for text in texts)
+
+
 def test_diary_payload_shape(tmp_path):
     plugin = make_plugin(tmp_path)
     plugin.store.append_diary("mine", "今天看了条猫")

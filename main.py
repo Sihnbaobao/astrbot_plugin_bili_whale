@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 import shutil
 import time
 from datetime import datetime
@@ -577,6 +578,19 @@ class BiliWhalePlugin(Star):
             parts.append(
                 {"type": "text", "text": "（想刷 B站 就自己用 whale_feed 看看，不用等他提。）"}
             )
+            # 有人丢了 B站 链接：告诉她这条能点进去看，不然她只会当普通消息回
+            text = str(getattr(event, "message_str", "") or "")
+            bvids = re.findall(r"BV[0-9A-Za-z]{10}", text)
+            if bvids:
+                parts.append(
+                    {
+                        "type": "text",
+                        "text": (
+                            f"（他发的是一条 B站 视频（{bvids[0]}），"
+                            "想看就用 whale_debrief 点进去。）"
+                        ),
+                    }
+                )
         else:
             current = (req.prompt or "").strip()
             req.prompt = f"{current}\n\n{block}" if current else block
