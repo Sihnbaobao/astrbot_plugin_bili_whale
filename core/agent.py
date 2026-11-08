@@ -294,11 +294,11 @@ class WakeAgent:
                 )
             lines.append("如果这和你自己的口味对不上，今天就换个方向；对得上就继续。")
 
-        yours = self.store.read_diary("yours")
-        if yours.strip():
+        previous = self.store.read_diary("mine")
+        if previous.strip():
             lines.append("")
-            lines.append(f"【昨天写给{self.settings.owner_name}的那本日记（节选）】")
-            lines.append(yours.strip()[-800:])
+            lines.append("【昨天写的日记（节选）】")
+            lines.append(previous.strip()[-800:])
 
         lines.append("")
         lines.append("【今天】")
@@ -309,7 +309,7 @@ class WakeAgent:
             f"想给他看的就发（最多 {self.settings.share_daily} 条，评分不低于 "
             f"{self.settings.share_min_score}）；没有想发的就空着，空着很正常。"
         )
-        lines.append("两本日记都要写。不想看也写，说明为什么。")
+        lines.append("日记要写。不想看也写，说明为什么。")
         return "\n".join(lines)
 
     # ── 工具集 ──
@@ -459,19 +459,14 @@ class WakeAgent:
             FunctionTool(
                 name="whale_diary",
                 description=(
-                    "写日记。mine 给自己（不加滤镜），yours 给他（有细节有情绪）。两本都写。"
+                    "写日记。给自己看的，不加滤镜。"
                 ),
                 parameters={
                     "type": "object",
                     "properties": {
-                        "who": {
-                            "type": "string",
-                            "description": "哪一本",
-                            "enum": ["mine", "yours"],
-                        },
                         "text": {"type": "string", "description": "日记正文"},
                     },
-                    "required": ["who", "text"],
+                    "required": ["text"],
                 },
                 handler=self._tool_diary,
             )
@@ -824,19 +819,16 @@ class WakeAgent:
         used = int(state.get("shares", 0)) if state.get("day") == datetime.now().strftime("%Y-%m-%d") else 0
         return max(0, self.settings.share_daily - used)
 
-    async def _tool_diary(self, event: AstrMessageEvent, who: str, text: str) -> str:
+    async def _tool_diary(self, event: AstrMessageEvent, text: str) -> str:
         """写日记。"""
-        who = str(who or "").strip()
-        if who not in ("mine", "yours"):
-            return "who 只能是 mine 或 yours。"
         body = str(text or "").strip()
         if not body:
             return "正文是空的。"
         # 模型偶尔会把换行写成字面的 \n（而不是真的换行），存进 Markdown 就是一行长蛇。
         # 这里统一还原一次 —— 中文日记里出现字面反斜杠的可能性远低于这个 bug 的收益。
         body = body.replace("\\r\\n", "\n").replace("\\n", "\n").replace("\\t", "\t")
-        path = self.store.append_diary(who, body)
-        self.diaries.append(who)
+        path = self.store.append_diary("mine", body)
+        self.diaries.append("mine")
         return f"写好了：{path.name}"
 
     async def _tool_like(self, event: AstrMessageEvent, bvid: str) -> str:

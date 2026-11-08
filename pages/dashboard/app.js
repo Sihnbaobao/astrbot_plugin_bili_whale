@@ -6,7 +6,6 @@ const state = {
   status: null,
   config: null,
   diary: null,
-  who: "yours",
   statusTimer: 0,
   qrTimer: 0,
   pendingDelete: "",
@@ -612,9 +611,7 @@ function renderComments(list) {
 }
 
 function renderDiary() {
-  const mine = state.diary ? state.diary.mine : "";
-  const yours = state.diary ? state.diary.yours : "";
-  const text = state.who === "mine" ? mine : yours;
+  const text = state.diary ? state.diary.text : "";
   const body = el("diaryBody");
   body.textContent = "";
   const rounds = parseDiaryRounds(text);
@@ -789,7 +786,7 @@ function bind() {
       if (diaryBtn) {
         await handleDelete(diaryBtn, "d:", diaryBtn.getAttribute("data-del-time"), async function () {
           await bridge.apiPost("page/diary/delete", {
-            who: state.who,
+            who: "mine",
             time: diaryBtn.getAttribute("data-del-time"),
           });
           await loadDiary();
@@ -841,16 +838,6 @@ function bind() {
     });
   }
 
-  document.querySelectorAll(".segmented button").forEach(function (button) {
-    button.addEventListener("click", function () {
-      document.querySelectorAll(".segmented button").forEach(function (item) {
-        item.classList.remove("active");
-      });
-      button.classList.add("active");
-      state.who = button.getAttribute("data-who");
-      renderDiary();
-    });
-  });
 }
 
 async function boot() {

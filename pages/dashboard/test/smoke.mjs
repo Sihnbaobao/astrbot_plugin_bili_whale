@@ -225,8 +225,7 @@ globalThis.window = {
       if (path === "page/config") return configPayload;
       return {
         date: "2026-11-06",
-        mine: "## 09:10\n写给自己",
-        yours: "## 09:10\n写给你\n\n## 18:52\n又写了一段",
+        text: "## 09:10\n写给自己\n\n## 18:52\n又写了一段",
       };
     },
     apiPost: async () => ({}),
@@ -322,8 +321,8 @@ check(
 const chipCount = countClass(getEl("configGroups"), "chip");
 check(chipCount === 4, "作息组应渲染 4 个预设，实际 " + chipCount);
 check(
-  loggedIn.diary.indexOf("写给你") >= 0 && loggedIn.diary.indexOf("又写了一段") >= 0,
-  "日记默认展示写给用户那本，且按轮次分开"
+  loggedIn.diary.indexOf("写给自己") >= 0 && loggedIn.diary.indexOf("又写了一段") >= 0,
+  "日记按轮次分开显示"
 );
 check(
   loggedIn.diaryRounds === 2,

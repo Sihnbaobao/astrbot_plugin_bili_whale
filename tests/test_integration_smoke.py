@@ -521,7 +521,7 @@ def test_status_handler_runs_offline(agent):
 def test_diary_handler_writes(agent):
     import asyncio
 
-    asyncio.run(agent._tool_diary(agent._make_event(), "mine", "今天不想看"))
+    asyncio.run(agent._tool_diary(agent._make_event(), "今天不想看"))
     assert "不想看" in agent.store.read_diary("mine")
 
 
@@ -529,7 +529,7 @@ def test_diary_unescapes_literal_newlines(agent):
     """模型偶尔把换行写成字面 \\n，落盘前要还原成真换行。"""
     import asyncio
 
-    asyncio.run(agent._tool_diary(agent._make_event(), "mine", "第一行\\n第二行"))
+    asyncio.run(agent._tool_diary(agent._make_event(), "第一行\\n第二行"))
     body = agent.store.read_diary("mine")
     assert "\\n" not in body
     assert "第二行" in body.splitlines()

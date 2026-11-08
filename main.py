@@ -1,6 +1,6 @@
 """养鱼 · 自己刷B站。
 
-一个「她自己过日子」的插件：按作息随机醒来，挑几条视频真看懂，写两本日记，
+一个「她自己过日子」的插件：按作息随机醒来，挑几条视频真看懂，写日记，
 再决定要不要叫你。判断交给模型（工具循环），代码只管三件事：喂素材、守红线、按时叫醒。
 
 与旧版刷B站插件的区别不在功能多少，而在分工：
@@ -311,7 +311,7 @@ class BiliWhalePlugin(Star):
         note = ""
         if skip:
             note = (
-                "今天掷到了「不想看」。不用 whale_feed，直接写两本日记说明今天为什么不想看，"
+                "今天掷到了「不想看」。不用 whale_feed，直接写日记说明今天为什么不想看，"
                 "然后汇报。这是被允许的，不必硬找理由去看。"
             )
         self._wake_ok = False
@@ -365,12 +365,8 @@ class BiliWhalePlugin(Star):
             return
 
         if sub.startswith("日记"):
-            who = "yours" if "给你" in sub or "yours" in sub else "mine"
-            body = self.store.read_diary(who).strip()
-            label = "写给你那本" if who == "yours" else "写给自己那本"
-            yield event.plain_result(
-                f"今天{label}：\n\n{body or '（今天还没写）'}"
-            )
+            body = self.store.read_diary("mine").strip()
+            yield event.plain_result(f"今天的日记：\n\n{body or '（还没写）'}")
             return
 
         if sub in ("历史", "history"):
@@ -440,7 +436,7 @@ class BiliWhalePlugin(Star):
             ("page/login/qr", self._api_login_qr, ["POST"], "养鱼：生成登录二维码"),
             ("page/login/poll", self._api_login_poll, ["POST"], "养鱼：查询扫码状态"),
             ("page/wake", self._api_wake, ["POST"], "养鱼：手动唤醒一次"),
-            ("page/diary", self._api_diary, ["GET"], "养鱼：今日两本日记"),
+            ("page/diary", self._api_diary, ["GET"], "养鱼：今日日记"),
             ("page/config", self._api_config, ["GET"], "养鱼：读取可编辑配置"),
             ("page/watch/delete", self._api_watch_delete, ["POST"], "养鱼：删除一条观看记录"),
             ("page/diary/delete", self._api_diary_delete, ["POST"], "养鱼：删除某一轮日记"),
@@ -821,15 +817,11 @@ class BiliWhalePlugin(Star):
         return json_response({"started": True})
 
     async def _api_diary(self):
-        """今天的两本日记。"""
+        """今天的日记。"""
         from astrbot.api.web import json_response
 
         return json_response(
-            {
-                "date": today_str(),
-                "mine": self.store.read_diary("mine"),
-                "yours": self.store.read_diary("yours"),
-            }
+            {"date": today_str(), "text": self.store.read_diary("mine")}
         )
 
     async def _api_config(self):

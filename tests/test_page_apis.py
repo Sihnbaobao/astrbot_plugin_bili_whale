@@ -188,10 +188,10 @@ def test_status_lists_her_comments(tmp_path):
 
 def test_diary_payload_shape(tmp_path):
     plugin = make_plugin(tmp_path)
-    plugin.store.append_diary("yours", "今天看了条猫")
+    plugin.store.append_diary("mine", "今天看了条猫")
     data = body(asyncio.run(main.BiliWhalePlugin._api_diary(plugin)))
-    assert set(data) == {"date", "mine", "yours"}
-    assert "猫" in data["yours"]
+    assert set(data) == {"date", "text"}
+    assert "猫" in data["text"]
 
 
 def test_config_payload_covers_editable_keys(tmp_path):
