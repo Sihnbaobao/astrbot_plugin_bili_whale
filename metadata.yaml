@@ -1,9 +1,11 @@
 name: astrbot_plugin_bili_whale
 display_name: 养鱼 · 自己刷B站
+short_desc: 让她自己按作息刷 B站、写日记，再决定要不要叫你
 desc: >-
   让她自己按作息刷B站：随机醒、挑片、真看懂视频、写两本日记，再决定要不要叫你。
   判断交给模型（agent 工具循环），代码只守红线：读/写预算、分享配额、风控熔断。
   带插件页面：扫码登录 B站（显示头像与昵称）、额度与作息、一键叫醒、翻日记、在线改设置。
+help: 在插件页扫码登录 B站，设置推送会话；她会按自己的作息醒来、挑视频、写日记，必要时再叫你。
 version: 0.3.0
 author: Sihnbaobao
 repo: https://github.com/Sihnbaobao/astrbot_plugin_bili_whale
@@ -12,3 +14,9 @@ support_platforms:
   - aiocqhttp
   - telegram
   - discord
+social_link: https://github.com/Sihnbaobao
+tags:
+  - B站
+  - 主动
+  - 日记
+  - 陪伴
