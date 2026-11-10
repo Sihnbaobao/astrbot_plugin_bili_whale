@@ -34,7 +34,6 @@ from .config import Settings
 from .debrief import Debrief, DebriefEngine
 from .store import Guard, Store
 
-
 # 点赞是公开动作，设个硬上限：再多就像在刷了
 LIKE_DAILY = 5
 # 两次点赞之间至少隔这么久（只约束点赞，不影响分享）
