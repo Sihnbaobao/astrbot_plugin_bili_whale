@@ -6,7 +6,7 @@ desc: >-
   判断交给模型（agent 工具循环），代码只守红线：读/写预算、分享配额、风控熔断。
   带插件页面：扫码登录 B站（显示头像与昵称）、额度与作息、一键叫醒、翻日记、在线改设置。
 help: 在插件页扫码登录 B站，设置推送会话；她会按自己的作息醒来、挑视频、写日记，必要时再叫你。
-version: 0.3.0
+version: 0.3.1
 author: Sihnbaobao
 repo: https://github.com/Sihnbaobao/astrbot_plugin_bili_whale
 astrbot_version: ">=4.9.0"
