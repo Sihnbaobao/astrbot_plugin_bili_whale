@@ -366,8 +366,11 @@ class BiliWhalePlugin(Star):
             return
 
         if sub.startswith("日记"):
-            body = self.store.read_diary("mine").strip()
-            yield event.plain_result(f"今天的日记：\n\n{body or '（还没写）'}")
+            day = sub.split(maxsplit=1)[1].strip() if " " in sub else ""
+            if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", day):
+                day = today_str()
+            body = self.store.read_diary("mine", day).strip()
+            yield event.plain_result(f"{day} 的日记：\n\n{body or '（没写）'}")
             return
 
         if sub in ("历史", "history"):
@@ -834,11 +837,18 @@ class BiliWhalePlugin(Star):
         return json_response({"started": True})
 
     async def _api_diary(self):
-        """今天的日记。"""
-        from astrbot.api.web import json_response
+        """某天的日记，默认今天。"""
+        from astrbot.api.web import json_response, request
 
+        day = str(request.query.get("date", "") or "").strip()
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", day):
+            day = today_str()
         return json_response(
-            {"date": today_str(), "text": self.store.read_diary("mine")}
+            {
+                "date": day,
+                "text": self.store.read_diary("mine", day),
+                "dates": self.store.diary_days(14),
+            }
         )
 
     async def _api_config(self):
@@ -987,9 +997,12 @@ class BiliWhalePlugin(Star):
             payload = {}
         who = str((payload or {}).get("who") or "").strip()
         stamp = str((payload or {}).get("time") or "").strip()
+        day = str((payload or {}).get("date") or "").strip()
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", day):
+            day = ""
         if who not in ("mine", "yours") or not stamp:
             return error_response("参数不对")
-        if not self.store.delete_diary_round(who, stamp):
+        if not self.store.delete_diary_round(who, stamp, day or None):
             return error_response("没找到这一轮")
         logger.info("[bili-whale] 删掉日记 %s 的 %s 那一轮", who, stamp)
         return json_response({"deleted": True})

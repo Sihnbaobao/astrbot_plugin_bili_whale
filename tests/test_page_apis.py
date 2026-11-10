@@ -211,12 +211,50 @@ def test_llm_hook_points_at_linked_video(tmp_path):
     assert "他发来的" in hint and "不是你自己刷到的" in hint
 
 
-def test_diary_payload_shape(tmp_path):
+def test_diary_payload_shape(tmp_path, monkeypatch):
+    import asyncio
+
+    from astrbot.api import web as web_module
+    from core.store import today_str
+
     plugin = make_plugin(tmp_path)
     plugin.store.append_diary("mine", "今天看了条猫")
+
+    class FakeRequest:
+        class query:
+            @staticmethod
+            def get(key, default=None):
+                return default
+
+    monkeypatch.setattr(web_module, "request", FakeRequest())
     data = body(asyncio.run(main.BiliWhalePlugin._api_diary(plugin)))
-    assert set(data) == {"date", "text"}
+    assert set(data) == {"date", "text", "dates"}
+    assert data["date"] == today_str()
     assert "猫" in data["text"]
+
+
+def test_diary_can_be_read_by_date(tmp_path, monkeypatch):
+    """按日期取某天的日记，旧的也要能翻。"""
+    import asyncio
+
+    from astrbot.api import web as web_module
+
+    plugin = make_plugin(tmp_path)
+    plugin.store.append_diary("mine", "今天写的")
+    old = plugin.store.diary_dir / "2026-11-01-mine.md"
+    old.write_text("## 09:10\n\n前天写的\n", encoding="utf-8")
+
+    class FakeRequest:
+        class query:
+            @staticmethod
+            def get(key, default=None):
+                return "2026-11-01" if key == "date" else default
+
+    monkeypatch.setattr(web_module, "request", FakeRequest())
+    data = body(asyncio.run(main.BiliWhalePlugin._api_diary(plugin)))
+    assert data["date"] == "2026-11-01"
+    assert "前天写的" in data["text"]
+    assert "2026-11-01" in data["dates"]
 
 
 def test_config_payload_covers_editable_keys(tmp_path):

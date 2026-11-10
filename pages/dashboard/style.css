@@ -374,6 +374,20 @@ body {
 }
 .segmented button.active { background: var(--surface); color: var(--accent); font-weight: 600; }
 
+.diary-days { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.day-chip {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.day-chip.active { color: var(--fg, inherit); border-color: var(--accent, #8a7bff); }
+
 .diary-body { max-height: 52vh; overflow: auto; padding-right: 4px; }
 .diary-round {
   display: grid; grid-template-columns: 44px 1fr; gap: 12px;

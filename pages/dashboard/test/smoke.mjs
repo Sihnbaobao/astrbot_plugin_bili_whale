@@ -226,6 +226,7 @@ globalThis.window = {
       return {
         date: "2026-11-06",
         text: "## 09:10\n写给自己\n\n## 18:52\n又写了一段",
+        dates: ["2026-11-06", "2026-11-05"],
       };
     },
     apiPost: async () => ({}),
@@ -328,6 +329,7 @@ check(
   loggedIn.diaryRounds === 2,
   "两轮日记应渲染成两个区块，实际 " + loggedIn.diaryRounds
 );
+check(getEl("diaryDays").children.length === 2, "日记要能按日期翻");
 
 // 显隐全靠 hidden 属性，而 .qr / .account 这类类名设了 display，
 // 会盖掉浏览器默认的 [hidden] { display: none } —— 样式表里必须有一条强制规则兜住。

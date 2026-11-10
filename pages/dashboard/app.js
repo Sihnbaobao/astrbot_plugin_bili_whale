@@ -2,6 +2,16 @@
 
 let bridge = null;
 
+function today() {
+  const now = new Date();
+  const pad = function (value) {
+    return String(value).padStart(2, "0");
+  };
+  return (
+    now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-" + pad(now.getDate())
+  );
+}
+
 const state = {
   status: null,
   config: null,
@@ -557,9 +567,10 @@ async function loadConfig() {
   }
 }
 
-async function loadDiary() {
+async function loadDiary(day) {
   try {
-    state.diary = await bridge.apiGet("page/diary");
+    const query = day ? "?date=" + encodeURIComponent(day) : "";
+    state.diary = await bridge.apiGet("page/diary" + query);
   } catch (error) {
     state.diary = null;
   }
@@ -616,13 +627,32 @@ function renderComments(list) {
 
 function renderDiary() {
   const text = state.diary ? state.diary.text : "";
+  const day = state.diary ? state.diary.date : "";
+  if (el("diaryTitle")) {
+    el("diaryTitle").textContent =
+      !day || day === today()
+        ? "今天的日记"
+        : day.slice(5) + " 的日记";
+  }
+  const days = el("diaryDays");
+  if (days) {
+    days.textContent = "";
+    ((state.diary && state.diary.dates) || []).slice(0, 7).forEach(function (item) {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = item === day ? "day-chip active" : "day-chip";
+      chip.textContent = item.slice(5);
+      chip.setAttribute("data-diary-day", item);
+      days.appendChild(chip);
+    });
+  }
   const body = el("diaryBody");
   body.textContent = "";
   const rounds = parseDiaryRounds(text);
   if (!rounds.length) {
     const empty = document.createElement("p");
     empty.className = "empty";
-    empty.textContent = "今天这两本还是空的。";
+    empty.textContent = "这天还没写。";
     body.appendChild(empty);
     return;
   }
@@ -775,6 +805,12 @@ function bind() {
       const node = evt && evt.target;
       if (!node || !node.closest) return;
 
+      const dayChip = node.closest("[data-diary-day]");
+      if (dayChip) {
+        await loadDiary(dayChip.getAttribute("data-diary-day"));
+        return;
+      }
+
       const watchBtn = node.closest("[data-del-bvid]");
       if (watchBtn) {
         await handleDelete(watchBtn, "w:", watchBtn.getAttribute("data-del-bvid"), async function () {
@@ -791,9 +827,10 @@ function bind() {
         await handleDelete(diaryBtn, "d:", diaryBtn.getAttribute("data-del-time"), async function () {
           await bridge.apiPost("page/diary/delete", {
             who: "mine",
+            date: state.diary ? state.diary.date : "",
             time: diaryBtn.getAttribute("data-del-time"),
           });
-          await loadDiary();
+          await loadDiary(state.diary ? state.diary.date : "");
         });
       }
     });

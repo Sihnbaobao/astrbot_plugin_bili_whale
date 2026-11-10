@@ -702,19 +702,27 @@ class BiliClient:
             )
             out: list[dict] = []
             for item in data.get("items") or []:
-                major = ((item.get("modules") or {}).get("module_dynamic") or {}).get("major") or {}
+                modules = item.get("modules") or {}
+                major = (modules.get("module_dynamic") or {}).get("major") or {}
                 archive = major.get("archive") or {}
-                if archive.get("bvid"):
-                    out.append(
-                        {
-                            "bvid": archive["bvid"],
-                            "title": archive.get("title", ""),
-                            "up": ((archive.get("author") or {}).get("name")) or "",
-                            "duration": 0,
-                            "views": 0,
-                            "desc": "",
-                        }
-                    )
+                if not archive.get("bvid"):
+                    continue
+                author = modules.get("module_author") or {}
+                stat = archive.get("stat") or {}
+                out.append(
+                    {
+                        "bvid": archive["bvid"],
+                        "aid": int(archive.get("aid") or 0),
+                        "title": str(archive.get("title") or ""),
+                        "up": str(author.get("name") or ""),
+                        "duration": _seconds(archive.get("duration_text")),
+                        "views": _count(stat.get("play")),
+                        "likes": 0,
+                        "pubdate": int(author.get("pub_ts") or 0),
+                        "desc": re.sub(r"s+", " ", str(archive.get("desc") or ""))[:200],
+                        "tname": "",
+                    }
+                )
             return out[:limit]
 
         data = await self._request(

@@ -589,6 +589,22 @@ class Store:
         _atomic_write(path, "\n".join(kept).strip() + "\n")
         return True
 
+    def diary_days(self, limit: int = 14) -> list[str]:
+        """最近写过日记的日期，新的在前。
+
+        Args:
+            limit: 最多返回几天。
+
+        Returns:
+            YYYY-MM-DD 列表。
+        """
+        days = set()
+        for path in self.diary_dir.glob("*-mine.md"):
+            name = path.name[: -len("-mine.md")]
+            if re.fullmatch(r"\d{4}-\d{2}-\d{2}", name):
+                days.add(name)
+        return sorted(days, reverse=True)[:limit]
+
     def read_diary(self, who: str, day: str | None = None) -> str:
         """读取某天某本日记，没有则返回空串。"""
         path = self.diary_dir / f"{day or today_str()}-{who}.md"
