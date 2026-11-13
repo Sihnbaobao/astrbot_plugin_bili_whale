@@ -133,7 +133,7 @@ sudo apt install ffmpeg
 | 工具 | 做什么 |
 |---|---|
 | `whale_live` | 列出正在直播的关注（房间号、标题、人气） |
-| `whale_listen` | 进一个直播间听 20 秒，把主播说的话转成文字 |
+| `whale_listen` | 进一个直播间待 20 秒：听主播说什么（本地转写），再抽帧看一眼画面 |
 
 **语音识别是本地的，不花钱、不联网、不上传音频。** 用的是
 [SenseVoice](https://github.com/FunAudioLLM/SenseVoice)（阿里开源，中英日韩粤）+

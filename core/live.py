@@ -138,3 +138,62 @@ async def listen(
         if wav is None:
             return ""
         return await transcribe(wav, model_dir)
+
+
+async def pull_frames(
+    url: str, seconds: int, ffmpeg: str, workdir: Path, count: int = 6
+) -> Path | None:
+    """从直播流里抽几帧，拼成一张图。
+
+    Args:
+        url: 播放地址。
+        seconds: 在这一段里均匀抽。
+        ffmpeg: ffmpeg 路径。
+        workdir: 临时目录。
+        count: 抽几帧（按 3x2 或 3x3 拼）。
+
+    Returns:
+        拼好的图片路径；失败返回 None。
+    """
+    if not ffmpeg:
+        return None
+    count = max(2, min(9, count))
+    cols = 3
+    rows = (count + cols - 1) // cols
+    cols = 3 if count > 4 else 2
+    rows = (count + cols - 1) // cols
+    step = max(1, seconds // count)
+    target = workdir / "live.jpg"
+    command = [
+        ffmpeg,
+        "-y",
+        "-loglevel",
+        "error",
+        "-headers",
+        "Referer: https://live.bilibili.com/\r\n",
+        "-user_agent",
+        "Mozilla/5.0",
+        "-i",
+        url,
+        "-t",
+        str(max(6, seconds)),
+        "-vf",
+        f"fps=1/{step},scale=640:-1,tile={cols}x{rows}",
+        "-frames:v",
+        "1",
+        str(target),
+    ]
+    try:
+        process = await asyncio.create_subprocess_exec(
+            *command,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        _, err = await asyncio.wait_for(process.communicate(), timeout=seconds + 90)
+    except (OSError, asyncio.TimeoutError) as exc:
+        logger.warning("[bili-whale] 抽直播画面失败：%s", exc)
+        return None
+    if process.returncode != 0 or not target.exists() or target.stat().st_size < 2000:
+        logger.warning("[bili-whale] 直播抽帧没成功：%s", err[-200:])
+        return None
+    return target

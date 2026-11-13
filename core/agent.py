@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import re
+import tempfile
 import time
 from datetime import datetime
 from pathlib import Path
@@ -86,7 +87,7 @@ SYSTEM_PROMPT = """你现在醒了，决定自己刷一会儿 B站。下面是�
 
 真要发的时候，正文是给他发的一条微信，不是推荐语：几个字到一两句，"为什么值得"写进 reason。
 想在视频底下评论，就用 whale_comment。
-关注的人开播了，可以 whale_live 看看；想听就 whale_listen 听二十秒。
+关注的人开播了，可以 whale_live 看看；想听想看就 whale_listen 待二十秒。
 
 不用总结今天看了什么 —— 想说的话写在分享里。"""
 
@@ -523,8 +524,8 @@ class WakeAgent:
             FunctionTool(
                 name="whale_listen",
                 description=(
-                    "进一个直播间听二十秒，把主播刚才说的话转成文字。"
-                    "慢（半分钟），只听得到声音，看不到画面。"
+                    "进一个直播间待二十秒：听主播在说什么，再抽几帧看看画面。"
+                    "慢（半分钟到一分钟），画面是几张截图，不是录像。"
                 ),
                 parameters={
                     "type": "object",
@@ -707,6 +708,30 @@ class WakeAgent:
         except Exception as exc:  # 看图失败不该毁掉整次唤醒
             logger.warning("bili-whale 看图失败：%s", exc)
             return f"（看图失败：{exc}）"
+
+    async def _describe(self, images: list[str], hint: str) -> str:
+        """让视觉模型看一眼图，返回文字描述。
+
+        Args:
+            images: 图片路径。
+            hint: 提示词里说明这是什么。
+
+        Returns:
+            画面描述；失败时返回空串。
+        """
+        try:
+            response = await self.context.llm_generate(
+                chat_provider_id=await self._provider_id(),
+                prompt=(
+                    f"{hint}用中文客观描述画面里能看到的内容：界面、人物、场景、文字、状态栏。"
+                    "如果画面上有大段文字或游戏界面，尽量读出来。不要推测没看到的东西。"
+                ),
+                image_urls=images,
+            )
+            return str(getattr(response, "completion_text", "") or "").strip()
+        except Exception as exc:  # 看图失败不该毁掉整次唤醒
+            logger.warning("[bili-whale] 看图失败：%s", exc)
+            return ""
 
     async def _tool_remember(
         self, event: AstrMessageEvent, bvid: str, note: str, tags: str = ""
@@ -956,7 +981,7 @@ class WakeAgent:
     async def _tool_listen(
         self, event: AstrMessageEvent, room_id: int, seconds: int = 20
     ) -> str:
-        """进直播间听一段，转成文字。"""
+        """进直播间听一段，顺便看一眼画面。"""
         if not self.asr_model:
             return "语音识别没配，听不了。"
         ready, why = live_mod.asr_ready(self.asr_model)
@@ -972,7 +997,17 @@ class WakeAgent:
         text = await live_mod.listen(url, seconds, self.ffmpeg, self.asr_model)
         if not text:
             return "什么都没听到 —— 可能只有音乐，或者抓流没成功。"
-        return text[:600]
+        parts = [f"【听到】\n{text[:600]}"]
+        # 声音之外再瞄一眼画面：直播间有没有在放东西，光靠听是不知道的
+        with tempfile.TemporaryDirectory(prefix="bili-whale-shot-") as tmp:
+            shot = await live_mod.pull_frames(url, seconds, self.ffmpeg, Path(tmp))
+            if shot is not None:
+                look = await self._describe(
+                    [str(shot)], "这是 B站 直播间的几张画面截图。"
+                )
+                if look:
+                    parts.append(f"【画面】\n{look[:600]}")
+        return "\n\n".join(parts)
 
     async def _tool_history(self, event: AstrMessageEvent, days: int = 7) -> str:
         """最近的观看记录。"""
