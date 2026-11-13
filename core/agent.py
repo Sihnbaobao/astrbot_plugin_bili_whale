@@ -572,13 +572,27 @@ class WakeAgent:
         wanted = requested or self.settings.feed_priority
         note = "" if used == wanted else f"（{wanted} 不可用，已改用 {used}）\n"
         watched = {entry.get("bvid") for entry in self.store.watched_recent(7)}
-        lines = []
+        now = time.time()
+
+        def ago(stamp: int) -> str:
+            """把发布时间压成"几小时前/几天前"，免得她把一批当成一天发的。"""
+            if not stamp:
+                return ""
+            days = int((now - stamp) // 86400)
+            if days <= 0:
+                return "今天"
+            if days == 1:
+                return "昨天"
+            return f"{days} 天前"
+
+        lines = ["（按发布时间倒序，可能跨好几天，不是同一天的）"]
         for index, item in enumerate(items, 1):
             mark = " ⚠️最近看过" if item.get("bvid") in watched else ""
+            when = ago(int(item.get("pubdate") or 0))
             lines.append(
                 f"{index}. {item.get('bvid', '')} 「{item.get('title', '')}」 "
                 f"UP {item.get('up', '?')} | {item.get('duration', 0)}s | "
-                f"播放 {item.get('views', 0)} | {item.get('tname', '') or '-'}{mark}"
+                f"播放 {item.get('views', 0)} | {when or '-'}{mark}"
             )
             if item.get("desc"):
                 lines.append(f"   {item['desc'][:120]}")

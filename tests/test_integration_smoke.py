@@ -482,6 +482,7 @@ def test_feed_priority_falls_back_when_login_required(tmp_path):
     assert client.calls == ["following", "recommend", "popular"]
     assert "已改用 popular" in text
     assert "BV1xx411c7mD" in text
+    assert "不是同一天的" in text  # 不让她把一批动态当成一天发的
 
 
 def test_feed_honours_explicit_source(tmp_path):
