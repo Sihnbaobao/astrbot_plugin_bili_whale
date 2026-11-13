@@ -126,6 +126,33 @@ sudo apt install ffmpeg
 
 挑片规则写在系统提示词里，不靠代码过滤：明确不感兴趣的连浅读都不做；
 挑中一条要能说出「为什么是我会想看的」，说不出来就跳过；连续几天挑不到也算正常。
+## 直播间
+
+关注的人开播时，她可以：
+
+| 工具 | 做什么 |
+|---|---|
+| `whale_live` | 列出正在直播的关注（房间号、标题、人气） |
+| `whale_listen` | 进一个直播间听 20 秒，把主播说的话转成文字 |
+
+**语音识别是本地的，不花钱、不联网、不上传音频。** 用的是
+[SenseVoice](https://github.com/FunAudioLLM/SenseVoice)（阿里开源，中英日韩粤）+
+`sherpa-onnx`，int8 模型 229 MB，单次转写内存峰值约 400 MB。
+
+装法（可选，不装就只是听不了）：
+
+```bash
+pip install sherpa-onnx
+mkdir -p data/plugin_data/astrbot_plugin_bili_whale/asr
+cd data/plugin_data/astrbot_plugin_bili_whale/asr
+base=https://hf-mirror.com/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/resolve/main
+curl -LO "$base/model.int8.onnx"
+curl -LO "$base/tokens.txt"
+```
+
+**音频不落盘。** ffmpeg 抓到的 wav 写在系统临时目录里，转完立刻删掉；
+库里只留转写出来的文字，没有录音。
+
 ## 她记得自己看过什么
 
 每条浅读 / 深读都会记进本地库（`watched.jsonl`）：

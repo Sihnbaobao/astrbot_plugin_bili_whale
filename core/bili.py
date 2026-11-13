@@ -845,6 +845,91 @@ class BiliClient:
             raise BiliError("私信没发出去：平台没有返回消息 ID")
         return "已送达"
 
+    async def live_following(self) -> list[dict]:
+        """看关注的人里谁在直播。
+
+        Returns:
+            每项含 room_id / uid / uname / title / online / live_status。
+        """
+        me = await self.nav()
+        mid = int(me.get("mid") or 0)
+        if not mid:
+            raise BiliError("没有登录态，看不到关注列表")
+        follow = await self._request(
+            "GET",
+            "https://api.bilibili.com/x/relation/followings",
+            params={"vmid": mid, "ps": 50, "pn": 1},
+        )
+        uids = [int(item.get("mid") or 0) for item in (follow.get("list") or [])]
+        uids = [uid for uid in uids if uid]
+        if not uids:
+            return []
+        data = await self._request(
+            "GET",
+            "https://api.live.bilibili.com/room/v1/Room/get_status_info_by_uids",
+            params={"uids[]": uids},
+            referer="https://live.bilibili.com/",
+        )
+        out: list[dict] = []
+        for uid, info in (data or {}).items():
+            if not isinstance(info, dict):
+                continue
+            out.append(
+                {
+                    "uid": int(uid),
+                    "room_id": int(info.get("room_id") or 0),
+                    "uname": str(info.get("uname") or ""),
+                    "title": str(info.get("title") or ""),
+                    "online": int(info.get("online") or 0),
+                    "live_status": int(info.get("live_status") or 0),
+                }
+            )
+        # 直播中的排前面
+        out.sort(key=lambda item: item["live_status"] != 1)
+        return out
+
+    async def live_play_url(self, room_id: int) -> str:
+        """取一个直播间的播放地址（优先 HLS）。
+
+        Args:
+            room_id: 房间号。
+
+        Returns:
+            可直接喂给 ffmpeg 的地址。
+        """
+        data = await self._request(
+            "GET",
+            "https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo",
+            params={
+                "room_id": int(room_id),
+                "protocol": "0,1",
+                "format": "0,1,2",
+                "codec": "0,1",
+                "qn": 80,
+                "platform": "web",
+                "ptype": 8,
+            },
+            referer="https://live.bilibili.com/",
+        )
+        streams = ((data.get("playurl_info") or {}).get("playurl") or {}).get(
+            "stream"
+        ) or []
+        for want in ("http_hls", "http_stream"):
+            for stream in streams:
+                if stream.get("protocol_name") != want:
+                    continue
+                for fmt in stream.get("format") or []:
+                    for codec in fmt.get("codec") or []:
+                        infos = codec.get("url_info") or []
+                        base = codec.get("base_url") or ""
+                        if infos and base:
+                            return (
+                                (infos[0].get("host") or "")
+                                + base
+                                + (infos[0].get("extra") or "")
+                            )
+        raise BiliError("这个直播间没有可用的播放地址")
+
     async def post_comment(self, aid: int, message: str, bvid: str = "") -> dict:
         """在视频下发一条评论。
 

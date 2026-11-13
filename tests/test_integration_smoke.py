@@ -105,6 +105,8 @@ def test_tools_are_constructible_and_valid(agent):
         "whale_recall",
         "whale_history",
         "whale_status",
+        "whale_live",
+        "whale_listen",
     }
     for tool in tools.tools:
         assert tool.parameters["type"] == "object"
@@ -556,3 +558,85 @@ def test_share_is_blocked_without_score(agent):
         agent._tool_share(agent._make_event(), "BV1xx411c7mD", "看看这个", 0, "短")
     )
     assert "被拒" in text
+
+
+def test_live_tool_lists_streaming_follows(tmp_path):
+    import asyncio
+
+    class FakeClient:
+        logged_in = True
+
+        async def live_following(self):
+            return [
+                {"uid": 1, "room_id": 77, "uname": "暴暴", "title": "画画",
+                 "online": 120, "live_status": 1},
+                {"uid": 2, "room_id": 88, "uname": "别人", "title": "没开播",
+                 "online": 0, "live_status": 0},
+            ]
+
+    store = Store(tmp_path)
+    agent = WakeAgent(
+        context=None,
+        settings=Settings(owner_umo="webchat:FriendMessage:1"),
+        store=store,
+        guard=Guard(store),
+        client=FakeClient(),
+        debrief=None,
+        ffmpeg="",
+        asr_model=tmp_path / "asr",
+    )
+    text = asyncio.run(agent._tool_live(agent._make_event()))
+    assert "暴暴" in text and "房间号 77" in text
+    assert "别人" not in text  # 没开播的不列出来
+
+
+def test_listen_returns_transcript(tmp_path, monkeypatch):
+    import asyncio
+
+    from core import live as live_mod
+
+    class FakeClient:
+        logged_in = True
+
+        async def live_play_url(self, room_id):
+            return "https://example.com/live.m3u8"
+
+    store = Store(tmp_path)
+    agent = WakeAgent(
+        context=None,
+        settings=Settings(owner_umo="webchat:FriendMessage:1"),
+        store=store,
+        guard=Guard(store),
+        client=FakeClient(),
+        debrief=None,
+        ffmpeg="/usr/bin/ffmpeg",
+        asr_model=tmp_path / "asr",
+    )
+    monkeypatch.setattr(live_mod, "asr_ready", lambda path: (True, ""))
+
+    async def fake_listen(url, seconds, ffmpeg, model):
+        return "他在讲昨天的比赛"
+
+    monkeypatch.setattr(live_mod, "listen", fake_listen)
+    text = asyncio.run(agent._tool_listen(agent._make_event(), 77, 10))
+    assert "昨天的比赛" in text
+
+
+def test_listen_reports_missing_asr(tmp_path, monkeypatch):
+    import asyncio
+
+    from core import live as live_mod
+
+    store = Store(tmp_path)
+    agent = WakeAgent(
+        context=None,
+        settings=Settings(owner_umo="webchat:FriendMessage:1"),
+        store=store,
+        guard=Guard(store),
+        client=None,
+        debrief=None,
+        ffmpeg="",
+        asr_model=tmp_path / "asr",
+    )
+    monkeypatch.setattr(live_mod, "asr_ready", lambda path: (False, "语音模型还没下载"))
+    assert "语音模型" in asyncio.run(agent._tool_listen(agent._make_event(), 77, 10))

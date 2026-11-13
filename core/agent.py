@@ -18,6 +18,7 @@ from __future__ import annotations
 import re
 import time
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from astrbot.api import logger
@@ -30,6 +31,7 @@ from astrbot.core.platform import (
     PlatformMetadata,
 )
 
+from . import live as live_mod
 from .bili import BiliClient, BiliError
 from .config import Settings
 from .debrief import Debrief, DebriefEngine
@@ -84,6 +86,7 @@ SYSTEM_PROMPT = """你现在醒了，决定自己刷一会儿 B站。下面是�
 
 真要发的时候，正文是给他发的一条微信，不是推荐语：几个字到一两句，"为什么值得"写进 reason。
 想在视频底下评论，就用 whale_comment。
+关注的人开播了，可以 whale_live 看看；想听就 whale_listen 听二十秒。
 
 不用总结今天看了什么 —— 想说的话写在分享里。"""
 
@@ -114,8 +117,10 @@ class WakeAgent:
         ffmpeg: str = "",
         chat: bool = False,
         linked: frozenset[str] | set[str] = frozenset(),
+        asr_model: Path | None = None,
     ) -> None:
         self.chat = chat
+        self.asr_model = asr_model
         # 别人在聊天里发来的视频号：看可以，但不算她自己刷到的
         self.linked = set(linked)
         self.context = context
@@ -504,6 +509,35 @@ class WakeAgent:
                     "required": ["query"],
                 },
                 handler=self._tool_recall,
+            )
+        )
+        tools.add_tool(
+            FunctionTool(
+                name="whale_live",
+                description="看关注的人里谁正在直播。",
+                parameters={"type": "object", "properties": {}, "required": []},
+                handler=self._tool_live,
+            )
+        )
+        tools.add_tool(
+            FunctionTool(
+                name="whale_listen",
+                description=(
+                    "进一个直播间听二十秒，把主播刚才说的话转成文字。"
+                    "慢（半分钟），只听得到声音，看不到画面。"
+                ),
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "room_id": {"type": "integer", "description": "房间号"},
+                        "seconds": {
+                            "type": "integer",
+                            "description": "听多少秒，默认 20",
+                        },
+                    },
+                    "required": ["room_id"],
+                },
+                handler=self._tool_listen,
             )
         )
         tools.add_tool(
@@ -901,6 +935,44 @@ class WakeAgent:
             if tags:
                 lines.append(f"   标签：{tags}")
         return "\n".join(lines)
+
+    async def _tool_live(self, event: AstrMessageEvent) -> str:
+        """看关注的人里谁在直播。"""
+        try:
+            rooms = await self.client.live_following()
+        except BiliError as exc:
+            return f"看不了：{exc}"
+        live_now = [room for room in rooms if room.get("live_status") == 1]
+        if not live_now:
+            return "关注的人现在都没在播。"
+        lines = [f"正在播的有 {len(live_now)} 个："]
+        for room in live_now[:6]:
+            lines.append(
+                f"- {room['uname']}（房间号 {room['room_id']}）{room['title']}"
+                f" | 人气 {room['online']}"
+            )
+        return "\n".join(lines)
+
+    async def _tool_listen(
+        self, event: AstrMessageEvent, room_id: int, seconds: int = 20
+    ) -> str:
+        """进直播间听一段，转成文字。"""
+        if not self.asr_model:
+            return "语音识别没配，听不了。"
+        ready, why = live_mod.asr_ready(self.asr_model)
+        if not ready:
+            return why
+        seconds = max(5, min(60, int(seconds or 20)))
+        try:
+            url = await self.client.live_play_url(int(room_id))
+        except BiliError as exc:
+            return f"进不去这个直播间：{exc}"
+        if not self.ffmpeg:
+            return "这台机器没有 ffmpeg，抓不到音频。"
+        text = await live_mod.listen(url, seconds, self.ffmpeg, self.asr_model)
+        if not text:
+            return "什么都没听到 —— 可能只有音乐，或者抓流没成功。"
+        return text[:600]
 
     async def _tool_history(self, event: AstrMessageEvent, days: int = 7) -> str:
         """最近的观看记录。"""

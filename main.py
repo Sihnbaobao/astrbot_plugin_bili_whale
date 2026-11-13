@@ -308,6 +308,7 @@ class BiliWhalePlugin(Star):
             client=self.client,
             debrief=self.debrief,
             ffmpeg=self.ffmpeg,
+            asr_model=self.store.root / "asr",
         )
         note = ""
         if skip:
@@ -471,6 +472,7 @@ class BiliWhalePlugin(Star):
             ffmpeg=self.ffmpeg,
             chat=True,
             linked=set(linked or ()),
+            asr_model=self.store.root / "asr",
         )
         tools = ToolSet()
         for name, description, parameters, handler in (
