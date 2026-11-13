@@ -274,16 +274,23 @@ class WakeAgent:
         persona = str(self.settings.persona_id or "").strip()
         me = persona if persona and persona != "default" else "她"
         you = self.settings.owner_name or "对方"
+        def tidy(text: str) -> str:
+            """去掉聊天记录里自带的时间戳和「昵称(ID:xxx)：」前缀。"""
+            body = re.sub(r"^\[[^\]]{1,40}\]\s*", "", text)
+            body = re.sub(r"^.{1,40}?\(ID:\d+\)[:：]\s*", "", body)
+            body = re.sub(r"^[^:：\n]{1,24}[:：]\s*", "", body)
+            return " ".join(body.split())
+
         out: list[str] = []
         for line in lines[:limit]:
             text = str(line or "").strip()
             if text.startswith("User: "):
-                out.append(f"{you}：{clip_text(text[6:], 50)}")
+                out.append(f"{you}：{clip_text(tidy(text[6:]), 50)}")
             elif text.startswith("Assistant: "):
                 body = text[11:].strip()
                 if body.startswith("[函数调用]") or body.startswith("[未知"):
                     continue
-                out.append(f"{me}：{clip_text(body, 50)}")
+                out.append(f"{me}：{clip_text(tidy(body), 50)}")
         out.reverse()  # 接口给的是新的在前，翻过来好读
         return out
 
@@ -355,6 +362,7 @@ class WakeAgent:
 
         chat = await self._recent_chat()
         if chat:
+            logger.info("[bili-whale] 带上 %d 条最近聊天", len(chat))
             lines.append("")
             lines.append(f"【最近和{self.settings.owner_name or '对方'}聊过】")
             lines.extend(chat)

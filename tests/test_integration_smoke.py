@@ -680,3 +680,38 @@ def test_wake_prompt_includes_recent_chat(tmp_path):
     assert "暴暴：今天好累" in prompt
     assert "璃月：嗯。" in prompt
     assert "函数调用" not in prompt
+
+
+def test_recent_chat_strips_prefix(tmp_path):
+    """聊天记录自带的「[时间] 昵称(ID:x):」要清掉。"""
+    import asyncio
+    from types import SimpleNamespace
+
+    class FakeManager:
+        async def get_curr_conversation_id(self, umo):
+            return "c1"
+
+        async def get_human_readable_context(self, umo, cid, page=1, page_size=10):
+            return (
+                [
+                    "User: [2026-11-13 周五 20:51:28] 暴暴(ID:123): 晚安",
+                ],
+                1,
+            )
+
+    store = Store(tmp_path)
+    agent = WakeAgent(
+        context=SimpleNamespace(conversation_manager=FakeManager()),
+        settings=Settings(
+            owner_umo="webchat:FriendMessage:1",
+            owner_name="暴暴",
+            persona_id="璃月",
+        ),
+        store=store,
+        guard=Guard(store),
+        client=None,
+        debrief=None,
+        ffmpeg="",
+    )
+    lines = asyncio.run(agent._recent_chat())
+    assert lines == ["暴暴：晚安"]
