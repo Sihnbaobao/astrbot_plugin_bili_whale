@@ -638,6 +638,7 @@ class Guard:
         read_daily: int = 3000,
         write_daily: int = 30,
         write_cooldown: int = 120,
+        comment_gap: int = 15,
         share_daily: int = 3,
         comment_daily: int = 2,
         share_min_score: int = 7,
@@ -647,6 +648,8 @@ class Guard:
         self.read_daily = max(1, int(read_daily))
         self.write_daily = max(1, int(write_daily))
         self.write_cooldown = max(0, int(write_cooldown))
+        # 评论自己的间隔：分享完立刻想评论是正常事，不该被分享的冷却挡住
+        self.comment_gap = max(0, int(comment_gap))
         self.share_daily = max(0, int(share_daily))
         self.comment_daily = max(0, int(comment_daily))
         self.share_min_score = max(0, int(share_min_score))
@@ -748,20 +751,26 @@ class Guard:
 
         state = self._state()
         now = time.time()
-        gap = now - float(state.get("last_write_at", 0))
-        if gap < self.write_cooldown:
-            return False, f"写冷却中，还需等 {int(self.write_cooldown - gap)} 秒"
+        if is_comment:
+            gap = now - float(state.get("last_comment_at", 0))
+            if gap < self.comment_gap:
+                return False, "刚评过一条，喘口气再说"
+        else:
+            gap = now - float(state.get("last_write_at", 0))
+            if gap < self.write_cooldown:
+                return False, f"先等等，{int(self.write_cooldown - gap)} 秒后再发"
 
         if int(state["writes"]) >= self.write_daily:
             return False, f"今日写预算用完（{state['writes']}/{self.write_daily}）"
 
         if is_comment:
-            if int(state["comments"]) >= self.comment_daily:
-                return False, f"今天评论够多了（{state['comments']}/{self.comment_daily}）"
+            # 先看这条是不是评过：额度用完时她要的是准确原因，不是"今天够了"
             if bvid:
                 last = float(state["commented"].get(bvid, 0))
                 if now - last < self.video_cooldown_days * 86400:
                     return False, "这条已经评论过了"
+            if int(state["comments"]) >= self.comment_daily:
+                return False, f"今天评论够多了（{state['comments']}/{self.comment_daily}）"
             return True, ""
 
         if not is_share:
@@ -791,7 +800,11 @@ class Guard:
         """记一次写操作。"""
         state = self._state()
         state["writes"] = int(state["writes"]) + 1
-        state["last_write_at"] = time.time()
+        if is_comment:
+            # 评论不占用分享的写冷却：评完接着分享是正常的
+            state["last_comment_at"] = time.time()
+        else:
+            state["last_write_at"] = time.time()
         if is_share:
             state["shares"] = int(state["shares"]) + 1
             if bvid:

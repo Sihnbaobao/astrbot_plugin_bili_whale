@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+import re
 import time
 from datetime import datetime
 from typing import Any
@@ -702,8 +703,12 @@ class WakeAgent:
             return "只评论真正读过的视频 —— 先 whale_debrief 看完再说。"
         if not body:
             return "评论是空的。"
-        if "@" in body or "http" in body.lower():
-            return "评论里别 @ 人、别放链接 —— 那是分享要做的事，评论是你自己想说的一句。"
+        # 她要是顺手带上了 @ 或链接，直接洗掉再发 —— 拦下来只会让她白试一次
+        body = re.sub(r"@[^\s@，。,.!?！？]{1,20}", "", body)
+        body = re.sub(r"https?://\S+", "", body)
+        body = " ".join(body.split()).strip(" ，,。.")
+        if not body:
+            return "洗掉 @ 和链接之后就不剩什么了，换个说法。"
         if len(body) > 200:  # 只是防止跑飞，正常不会碰到
             return "评论太长了，删短一点再发。"
 

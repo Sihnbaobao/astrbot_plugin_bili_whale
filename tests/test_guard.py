@@ -43,7 +43,7 @@ def test_write_cooldown(tmp_path):
     assert guard.write_gate()[0] is True
     guard.note_write()
     ok, why = guard.write_gate()
-    assert ok is False and "冷却" in why
+    assert ok is False and "先等等" in why
 
 
 def test_write_daily_cap(tmp_path):

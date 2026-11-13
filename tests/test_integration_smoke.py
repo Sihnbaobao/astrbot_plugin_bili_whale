@@ -162,7 +162,7 @@ def test_comment_requires_deep_read(tmp_path):
         context=None,
         settings=Settings(owner_umo="webchat:FriendMessage:1", enable_comment=True),
         store=store,
-        guard=Guard(store, write_cooldown=0),
+        guard=Guard(store, write_cooldown=0, comment_gap=0),
         client=client,
         debrief=None,
         ffmpeg="",
@@ -173,27 +173,32 @@ def test_comment_requires_deep_read(tmp_path):
     assert client.comments == []
 
     agent._seen["BV1xx411c7mD"] = Debrief(bvid="BV1xx411c7mD")
-    assert "别 @ 人" in asyncio.run(
+    agent._seen["BV1yy411c7mD"] = Debrief(bvid="BV1yy411c7mD")
+
+    # 顺手带的 @ 自动洗掉，不让她白试一次
+    assert "评了" in asyncio.run(
         agent._tool_comment(event, "BV1xx411c7mD", "@暴暴 看这个")
     )
-    assert "别 @ 人" in asyncio.run(
-        agent._tool_comment(event, "BV1xx411c7mD", "https://example.com")
-    )
-    assert "太长" in asyncio.run(agent._tool_comment(event, "BV1xx411c7mD", "啊" * 300))
-    assert client.comments == []
+    assert client.comments == ["看这个"]
 
-    result = asyncio.run(agent._tool_comment(event, "BV1xx411c7mD", "这段剪得真好"))
+    # 全是链接，洗完什么都不剩，才拦
+    assert "不剩什么" in asyncio.run(
+        agent._tool_comment(event, "BV1yy411c7mD", "https://example.com")
+    )
+    assert "太长" in asyncio.run(agent._tool_comment(event, "BV1yy411c7mD", "啊" * 300))
+
+    result = asyncio.run(agent._tool_comment(event, "BV1yy411c7mD", "这段剪得真好"))
     assert "评了" in result
-    assert "还剩 1 条" in result  # 她要能知道今天还剩几条
-    assert client.comments == ["这段剪得真好"]
+    assert "还剩 0 条" in result  # 一天两条，已经用完了
+    assert client.comments == ["看这个", "这段剪得真好"]
 
     # 评论正文要留在记录里，插件页才看得见
-    saved = {item["bvid"]: item for item in store.watched_recent(7)}["BV1xx411c7mD"]
+    saved = {item["bvid"]: item for item in store.watched_recent(7)}["BV1yy411c7mD"]
     assert saved["comment"] == "这段剪得真好"
     assert saved["commented"] is True
 
     # 同一条视频不重复评
-    assert "评论过" in asyncio.run(agent._tool_comment(event, "BV1xx411c7mD", "再说一句"))
+    assert "评论过" in asyncio.run(agent._tool_comment(event, "BV1yy411c7mD", "再说一句"))
 
 
 def test_comment_shares_dedupe_with_share_channel(tmp_path):
