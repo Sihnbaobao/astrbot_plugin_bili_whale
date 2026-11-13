@@ -242,57 +242,79 @@ class WakeAgent:
         event._bili_whale_wake = True
         return event
 
-    async def _recent_chat(self, limit: int = 8) -> list[str]:
-        """取她和他最近说过的话。
+    async def _recent_chat(self, limit: int = 8) -> tuple[str, list[str]]:
+        """取她最近待过的那个会话里最后几句话。
 
-        唤醒那一轮是个空会话，没有聊天上下文。给她补几条，
-        醒来时才知道对方最近在过什么日子，而不是对着空气刷视频。
+        群聊还是私聊，取决于哪边最后有人说话 —— 她在哪儿说过话，醒来就该记得哪儿。
+        唤醒那一轮是个空会话，没有聊天上下文，这几句就是她唯一的"昨天"。
 
         Args:
             limit: 最多几条。
 
         Returns:
-            按时间正序的行。
+            (这段话说的是哪儿, 按时间正序的行)。
         """
-        if not self.settings.owner_umo:
-            return []
         manager = getattr(self.context, "conversation_manager", None)
         if manager is None:
-            return []
+            return "", []
         try:
-            conversation_id = await manager.get_curr_conversation_id(
-                self.settings.owner_umo
-            )
-            if not conversation_id:
-                return []
+            conversations = await manager.get_conversations()
+        except Exception as exc:  # 列不出会话不该影响这一轮
+            logger.warning("[bili-whale] 列会话失败：%s", exc)
+            return "", []
+        conversations = [
+            conv
+            for conv in conversations or []
+            if str(getattr(conv, "history", "") or "").strip()
+        ]
+        if not conversations:
+            return "", []
+        latest = max(
+            conversations, key=lambda conv: int(getattr(conv, "updated_at", 0) or 0)
+        )
+        umo = str(getattr(latest, "user_id", "") or "")
+        conversation_id = str(getattr(latest, "cid", "") or "")
+        if not umo or not conversation_id:
+            return "", []
+        try:
             lines, _ = await manager.get_human_readable_context(
-                self.settings.owner_umo, conversation_id, page=1, page_size=limit
+                umo, conversation_id, page=1, page_size=limit
             )
-        except Exception as exc:  # 拿不到聊天记录不该影响这一轮
+        except Exception as exc:
             logger.warning("[bili-whale] 读聊天记录失败：%s", exc)
-            return []
+            return "", []
+
         persona = str(self.settings.persona_id or "").strip()
         me = persona if persona and persona != "default" else "她"
-        you = self.settings.owner_name or "对方"
+        owner = self.settings.owner_name or "对方"
+
         def tidy(text: str) -> str:
-            """去掉聊天记录里自带的时间戳和「昵称(ID:xxx)：」前缀。"""
+            """去掉时间戳，把「昵称(ID:xxx):」压成「昵称：」。"""
             body = re.sub(r"^\[[^\]]{1,40}\]\s*", "", text)
-            body = re.sub(r"^.{1,40}?\(ID:\d+\)[:：]\s*", "", body)
-            body = re.sub(r"^[^:：\n]{1,24}[:：]\s*", "", body)
+            body = re.sub(r"^(.{1,24}?)\(ID:\d+\)[:：]\s*", r"\1：", body)
             return " ".join(body.split())
 
         out: list[str] = []
         for line in lines[:limit]:
             text = str(line or "").strip()
             if text.startswith("User: "):
-                out.append(f"{you}：{clip_text(tidy(text[6:]), 50)}")
+                said = tidy(text[6:])
+                if said:
+                    out.append(clip_text(said, 60))
             elif text.startswith("Assistant: "):
-                body = text[11:].strip()
-                if body.startswith("[函数调用]") or body.startswith("[未知"):
+                said = text[11:].strip()
+                if said.startswith("[函数调用]") or said.startswith("[未知"):
                     continue
-                out.append(f"{me}：{clip_text(tidy(body), 50)}")
+                said = tidy(said)
+                if said:
+                    out.append(f"{me}：{clip_text(said, 50)}")
         out.reverse()  # 接口给的是新的在前，翻过来好读
-        return out
+
+        if "GroupMessage" in umo:
+            label = "【最近在群里聊过】"
+        else:
+            label = f"【最近和{owner}聊过】"
+        return label, out
 
     async def _prompt(self, *, manual: bool) -> str:
         """拼这一回合的唤醒提示。
@@ -360,11 +382,11 @@ class WakeAgent:
             lines.append("【昨天写的日记（节选）】")
             lines.append(previous.strip()[-800:])
 
-        chat = await self._recent_chat()
+        chat_label, chat = await self._recent_chat()
         if chat:
-            logger.info("[bili-whale] 带上 %d 条最近聊天", len(chat))
+            logger.info("[bili-whale] 带上 %d 条最近聊天（%s）", len(chat), chat_label)
             lines.append("")
-            lines.append(f"【最近和{self.settings.owner_name or '对方'}聊过】")
+            lines.append(chat_label)
             lines.extend(chat)
 
         lines.append("")

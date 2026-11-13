@@ -642,24 +642,39 @@ def test_listen_reports_missing_asr(tmp_path, monkeypatch):
     assert "语音模型" in asyncio.run(agent._tool_listen(agent._make_event(), 77, 10))
 
 
-def test_wake_prompt_includes_recent_chat(tmp_path):
-    """醒来那一轮该知道对方最近说了什么。"""
+def test_wake_prompt_uses_latest_session(tmp_path):
+    """醒来时带上「最后说话的那个会话」，群聊私聊都可能。"""
     import asyncio
     from types import SimpleNamespace
 
     class FakeManager:
-        async def get_curr_conversation_id(self, umo):
-            return "c1"
+        async def get_conversations(self):
+            return [
+                SimpleNamespace(
+                    user_id="webchat:FriendMessage:1",
+                    cid="c-private",
+                    history="[]",
+                    updated_at=100,
+                ),
+                SimpleNamespace(
+                    user_id="webchat:GroupMessage:9",
+                    cid="c-group",
+                    history="[]",
+                    updated_at=200,
+                ),
+            ]
 
         async def get_human_readable_context(self, umo, cid, page=1, page_size=10):
-            return (
-                [
-                    "Assistant: 嗯。",
-                    "User: 今天好累",
-                    "Assistant: [函数调用] {}",
-                ],
-                1,
-            )
+            if cid == "c-group":
+                return (
+                    [
+                        "Assistant: 嗯。",
+                        "User: [2026-11-13 20:51:28] 小明(ID:123): 今天好累",
+                        "Assistant: [函数调用] {}",
+                    ],
+                    1,
+                )
+            return (["User: 私聊里的话"], 1)
 
     store = Store(tmp_path)
     agent = WakeAgent(
@@ -676,28 +691,31 @@ def test_wake_prompt_includes_recent_chat(tmp_path):
         ffmpeg="",
     )
     prompt = asyncio.run(agent._prompt(manual=False))
-    assert "【最近和暴暴聊过】" in prompt
-    assert "暴暴：今天好累" in prompt
+    assert "【最近在群里聊过】" in prompt  # 群聊最后说话，就看群聊
+    assert "小明：今天好累" in prompt
     assert "璃月：嗯。" in prompt
+    assert "私聊里的话" not in prompt
     assert "函数调用" not in prompt
 
 
-def test_recent_chat_strips_prefix(tmp_path):
-    """聊天记录自带的「[时间] 昵称(ID:x):」要清掉。"""
+def test_recent_chat_returns_label_and_lines(tmp_path):
+    """返回值和标签：私聊用对方的名字。"""
     import asyncio
     from types import SimpleNamespace
 
     class FakeManager:
-        async def get_curr_conversation_id(self, umo):
-            return "c1"
+        async def get_conversations(self):
+            return [
+                SimpleNamespace(
+                    user_id="webchat:FriendMessage:1",
+                    cid="c1",
+                    history="[]",
+                    updated_at=5,
+                )
+            ]
 
         async def get_human_readable_context(self, umo, cid, page=1, page_size=10):
-            return (
-                [
-                    "User: [2026-11-13 周五 20:51:28] 暴暴(ID:123): 晚安",
-                ],
-                1,
-            )
+            return (["User: [2026-11-13 20:51:28] 暴暴(ID:123): 晚安"], 1)
 
     store = Store(tmp_path)
     agent = WakeAgent(
@@ -713,5 +731,6 @@ def test_recent_chat_strips_prefix(tmp_path):
         debrief=None,
         ffmpeg="",
     )
-    lines = asyncio.run(agent._recent_chat())
+    label, lines = asyncio.run(agent._recent_chat())
+    assert label == "【最近和暴暴聊过】"
     assert lines == ["暴暴：晚安"]
