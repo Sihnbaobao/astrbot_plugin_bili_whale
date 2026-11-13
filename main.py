@@ -309,6 +309,7 @@ class BiliWhalePlugin(Star):
             debrief=self.debrief,
             ffmpeg=self.ffmpeg,
             asr_model=self.store.root / "asr",
+            last_umo=self.store.last_umo(),
         )
         note = ""
         if skip:
@@ -535,6 +536,20 @@ class BiliWhalePlugin(Star):
                 )
             )
         return tools
+    @filter.on_decorating_result()
+    async def _remember_last_umo(self, event: AstrMessageEvent) -> None:
+        """记下她最后在哪个会话里说过话。
+
+        醒来时用这个会话当上下文 —— 群聊还是私聊，取决于她最后一次开口在哪。
+
+        Args:
+            event: 当前消息事件。
+        """
+        try:
+            self.store.note_umo(event.unified_msg_origin)
+        except Exception as exc:  # 记不上不该影响这次回复
+            logger.warning("[bili-whale] 记录会话失败：%s", exc)
+
     @filter.on_llm_request(priority=-5)
     async def _inject_browsing_memory(
         self, event: AstrMessageEvent, req: ProviderRequest

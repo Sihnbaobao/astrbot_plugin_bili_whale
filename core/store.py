@@ -153,6 +153,28 @@ class Store:
 
         body = lead + (("今天还刷过：" + "、".join(parts) + "。") if parts else "")
         return "（记忆：" + body + "）"
+    def note_umo(self, umo: str) -> None:
+        """记下她最后一次在哪个会话里说话。
+
+        醒来时靠这个回到"她刚离开的地方"—— 可能是群聊，也可能是私聊。
+
+        Args:
+            umo: 统一消息来源。
+        """
+        value = str(umo or "").strip()
+        if not value:
+            return
+        state = self.load_state()
+        state["last_umo"] = {"umo": value, "at": time.time()}
+        self.save_state(state)
+
+    def last_umo(self) -> str:
+        """她最后一次说话的那个会话；没有就返回空串。"""
+        record = self.load_state().get("last_umo") or {}
+        if not isinstance(record, dict):
+            return ""
+        return str(record.get("umo") or "")
+
     def liked_before(self, bvid: str) -> bool:
         """这条是不是已经点过赞了。"""
         return str(bvid) in (self.load_state().get("liked") or {})

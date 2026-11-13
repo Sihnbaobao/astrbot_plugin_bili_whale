@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import tempfile
 import time
@@ -119,9 +120,12 @@ class WakeAgent:
         chat: bool = False,
         linked: frozenset[str] | set[str] = frozenset(),
         asr_model: Path | None = None,
+        last_umo: str = "",
     ) -> None:
         self.chat = chat
         self.asr_model = asr_model
+        # 她最后一次说话的那个会话；空则退回 OWNER_UMO
+        self.last_umo = last_umo
         # 别人在聊天里发来的视频号：看可以，但不算她自己刷到的
         self.linked = set(linked)
         self.context = context
@@ -243,10 +247,10 @@ class WakeAgent:
         return event
 
     async def _recent_chat(self, limit: int = 8) -> tuple[str, list[str]]:
-        """取她最近待过的那个会话里最后几句话。
+        """取她最后待过的那个会话里最后几句话。
 
-        群聊还是私聊，取决于哪边最后有人说话 —— 她在哪儿说过话，醒来就该记得哪儿。
-        唤醒那一轮是个空会话，没有聊天上下文，这几句就是她唯一的"昨天"。
+        会话来自"她最后一次开口"的地方 —— 群聊还是私聊都算。
+        唤醒那一轮是个空会话，这几句就是她唯一的"昨天"。
 
         Args:
             limit: 最多几条。
@@ -257,30 +261,17 @@ class WakeAgent:
         manager = getattr(self.context, "conversation_manager", None)
         if manager is None:
             return "", []
-        try:
-            conversations = await manager.get_conversations()
-        except Exception as exc:  # 列不出会话不该影响这一轮
-            logger.warning("[bili-whale] 列会话失败：%s", exc)
-            return "", []
-        conversations = [
-            conv
-            for conv in conversations or []
-            if str(getattr(conv, "history", "") or "").strip()
-        ]
-        if not conversations:
-            return "", []
-        latest = max(
-            conversations, key=lambda conv: int(getattr(conv, "updated_at", 0) or 0)
-        )
-        umo = str(getattr(latest, "user_id", "") or "")
-        conversation_id = str(getattr(latest, "cid", "") or "")
-        if not umo or not conversation_id:
+        umo = self.last_umo or self.settings.owner_umo
+        if not umo:
             return "", []
         try:
+            conversation_id = await manager.get_curr_conversation_id(umo)
+            if not conversation_id:
+                return "", []
             lines, _ = await manager.get_human_readable_context(
                 umo, conversation_id, page=1, page_size=limit
             )
-        except Exception as exc:
+        except Exception as exc:  # 读不到聊天记录不该影响这一轮
             logger.warning("[bili-whale] 读聊天记录失败：%s", exc)
             return "", []
 

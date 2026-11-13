@@ -642,27 +642,18 @@ def test_listen_reports_missing_asr(tmp_path, monkeypatch):
     assert "语音模型" in asyncio.run(agent._tool_listen(agent._make_event(), 77, 10))
 
 
-def test_wake_prompt_uses_latest_session(tmp_path):
-    """醒来时带上「最后说话的那个会话」，群聊私聊都可能。"""
+def test_wake_prompt_uses_last_spoken_session(tmp_path):
+    """醒来时带上「她最后开口的那个会话」，群聊私聊都可能。"""
     import asyncio
     from types import SimpleNamespace
 
     class FakeManager:
-        async def get_conversations(self):
-            return [
-                SimpleNamespace(
-                    user_id="webchat:FriendMessage:1",
-                    cid="c-private",
-                    history="[]",
-                    updated_at=100,
-                ),
-                SimpleNamespace(
-                    user_id="webchat:GroupMessage:9",
-                    cid="c-group",
-                    history="[]",
-                    updated_at=200,
-                ),
-            ]
+        def __init__(self):
+            self.seen = []
+
+        async def get_curr_conversation_id(self, umo):
+            self.seen.append(umo)
+            return "c-group" if umo == "webchat:GroupMessage:9" else "c-private"
 
         async def get_human_readable_context(self, umo, cid, page=1, page_size=10):
             if cid == "c-group":
@@ -676,9 +667,10 @@ def test_wake_prompt_uses_latest_session(tmp_path):
                 )
             return (["User: 私聊里的话"], 1)
 
+    manager = FakeManager()
     store = Store(tmp_path)
     agent = WakeAgent(
-        context=SimpleNamespace(conversation_manager=FakeManager()),
+        context=SimpleNamespace(conversation_manager=manager),
         settings=Settings(
             owner_umo="webchat:FriendMessage:1",
             owner_name="暴暴",
@@ -689,30 +681,25 @@ def test_wake_prompt_uses_latest_session(tmp_path):
         client=None,
         debrief=None,
         ffmpeg="",
+        last_umo="webchat:GroupMessage:9",
     )
     prompt = asyncio.run(agent._prompt(manual=False))
-    assert "【最近在群里聊过】" in prompt  # 群聊最后说话，就看群聊
+    assert manager.seen == ["webchat:GroupMessage:9"]  # 用她最后说话的地方
+    assert "【最近在群里聊过】" in prompt
     assert "小明：今天好累" in prompt
     assert "璃月：嗯。" in prompt
     assert "私聊里的话" not in prompt
     assert "函数调用" not in prompt
 
 
-def test_recent_chat_returns_label_and_lines(tmp_path):
-    """返回值和标签：私聊用对方的名字。"""
+def test_recent_chat_falls_back_to_owner(tmp_path):
+    """没有记录时退回 OWNER_UMO，并给出私聊标签。"""
     import asyncio
     from types import SimpleNamespace
 
     class FakeManager:
-        async def get_conversations(self):
-            return [
-                SimpleNamespace(
-                    user_id="webchat:FriendMessage:1",
-                    cid="c1",
-                    history="[]",
-                    updated_at=5,
-                )
-            ]
+        async def get_curr_conversation_id(self, umo):
+            return "c1"
 
         async def get_human_readable_context(self, umo, cid, page=1, page_size=10):
             return (["User: [2026-11-13 20:51:28] 暴暴(ID:123): 晚安"], 1)
@@ -734,3 +721,11 @@ def test_recent_chat_returns_label_and_lines(tmp_path):
     label, lines = asyncio.run(agent._recent_chat())
     assert label == "【最近和暴暴聊过】"
     assert lines == ["暴暴：晚安"]
+
+
+def test_last_umo_is_remembered(tmp_path):
+    """她说过话的会话要落盘，重启后也在。"""
+    store = Store(tmp_path)
+    assert store.last_umo() == ""
+    store.note_umo("webchat:GroupMessage:9")
+    assert Store(tmp_path).last_umo() == "webchat:GroupMessage:9"
