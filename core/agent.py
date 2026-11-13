@@ -708,7 +708,7 @@ class WakeAgent:
         body = re.sub(r"https?://\S+", "", body)
         body = " ".join(body.split()).strip(" ，,。.")
         if not body:
-            return "洗掉 @ 和链接之后就不剩什么了，换个说法。"
+            return "除了 @ 和链接没写别的，换成一句自己的话。"
         if len(body) > 200:  # 只是防止跑飞，正常不会碰到
             return "评论太长了，删短一点再发。"
 

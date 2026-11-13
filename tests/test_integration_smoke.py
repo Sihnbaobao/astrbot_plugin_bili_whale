@@ -182,7 +182,7 @@ def test_comment_requires_deep_read(tmp_path):
     assert client.comments == ["看这个"]
 
     # 全是链接，洗完什么都不剩，才拦
-    assert "不剩什么" in asyncio.run(
+    assert "没写别的" in asyncio.run(
         agent._tool_comment(event, "BV1yy411c7mD", "https://example.com")
     )
     assert "太长" in asyncio.run(agent._tool_comment(event, "BV1yy411c7mD", "啊" * 300))
