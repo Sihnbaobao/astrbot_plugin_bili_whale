@@ -155,7 +155,7 @@ class WakeAgent:
             raise RuntimeError("还没配置「推送到哪个会话」（OWNER_UMO）")
         provider = await self._provider_id()
         event = self._make_event()
-        prompt = self._prompt(manual=manual)
+        prompt = await self._prompt(manual=manual)
         if note:
             prompt = f"{prompt}\n\n【这一趟的额外说明】\n{note}"
         response = await self.context.tool_loop_agent(
@@ -242,7 +242,52 @@ class WakeAgent:
         event._bili_whale_wake = True
         return event
 
-    def _prompt(self, *, manual: bool) -> str:
+    async def _recent_chat(self, limit: int = 8) -> list[str]:
+        """取她和他最近说过的话。
+
+        唤醒那一轮是个空会话，没有聊天上下文。给她补几条，
+        醒来时才知道对方最近在过什么日子，而不是对着空气刷视频。
+
+        Args:
+            limit: 最多几条。
+
+        Returns:
+            按时间正序的行。
+        """
+        if not self.settings.owner_umo:
+            return []
+        manager = getattr(self.context, "conversation_manager", None)
+        if manager is None:
+            return []
+        try:
+            conversation_id = await manager.get_curr_conversation_id(
+                self.settings.owner_umo
+            )
+            if not conversation_id:
+                return []
+            lines, _ = await manager.get_human_readable_context(
+                self.settings.owner_umo, conversation_id, page=1, page_size=limit
+            )
+        except Exception as exc:  # 拿不到聊天记录不该影响这一轮
+            logger.warning("[bili-whale] 读聊天记录失败：%s", exc)
+            return []
+        persona = str(self.settings.persona_id or "").strip()
+        me = persona if persona and persona != "default" else "她"
+        you = self.settings.owner_name or "对方"
+        out: list[str] = []
+        for line in lines[:limit]:
+            text = str(line or "").strip()
+            if text.startswith("User: "):
+                out.append(f"{you}：{clip_text(text[6:], 50)}")
+            elif text.startswith("Assistant: "):
+                body = text[11:].strip()
+                if body.startswith("[函数调用]") or body.startswith("[未知"):
+                    continue
+                out.append(f"{me}：{clip_text(body, 50)}")
+        out.reverse()  # 接口给的是新的在前，翻过来好读
+        return out
+
+    async def _prompt(self, *, manual: bool) -> str:
         """拼这一回合的唤醒提示。
 
         Args:
@@ -307,6 +352,12 @@ class WakeAgent:
             lines.append("")
             lines.append("【昨天写的日记（节选）】")
             lines.append(previous.strip()[-800:])
+
+        chat = await self._recent_chat()
+        if chat:
+            lines.append("")
+            lines.append(f"【最近和{self.settings.owner_name or '对方'}聊过】")
+            lines.extend(chat)
 
         lines.append("")
         lines.append("【今天】")

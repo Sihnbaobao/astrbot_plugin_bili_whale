@@ -640,3 +640,43 @@ def test_listen_reports_missing_asr(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(live_mod, "asr_ready", lambda path: (False, "语音模型还没下载"))
     assert "语音模型" in asyncio.run(agent._tool_listen(agent._make_event(), 77, 10))
+
+
+def test_wake_prompt_includes_recent_chat(tmp_path):
+    """醒来那一轮该知道对方最近说了什么。"""
+    import asyncio
+    from types import SimpleNamespace
+
+    class FakeManager:
+        async def get_curr_conversation_id(self, umo):
+            return "c1"
+
+        async def get_human_readable_context(self, umo, cid, page=1, page_size=10):
+            return (
+                [
+                    "Assistant: 嗯。",
+                    "User: 今天好累",
+                    "Assistant: [函数调用] {}",
+                ],
+                1,
+            )
+
+    store = Store(tmp_path)
+    agent = WakeAgent(
+        context=SimpleNamespace(conversation_manager=FakeManager()),
+        settings=Settings(
+            owner_umo="webchat:FriendMessage:1",
+            owner_name="暴暴",
+            persona_id="璃月",
+        ),
+        store=store,
+        guard=Guard(store),
+        client=None,
+        debrief=None,
+        ffmpeg="",
+    )
+    prompt = asyncio.run(agent._prompt(manual=False))
+    assert "【最近和暴暴聊过】" in prompt
+    assert "暴暴：今天好累" in prompt
+    assert "璃月：嗯。" in prompt
+    assert "函数调用" not in prompt
